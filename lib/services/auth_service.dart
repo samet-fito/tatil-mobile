@@ -1,3 +1,4 @@
+import 'package:url_launcher/url_launcher.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -12,18 +13,19 @@ class AuthService {
   // ============================================================
   // GOOGLE İLE GİRİŞ
   // ============================================================
-  static Future<bool> signInWithGoogle() async {
-    try {
-      await _supabase.auth.signInWithOAuth(
-        OAuthProvider.google,
-        redirectTo: 'io.supabase.tatilbulucu://login-callback',
-      );
-      _isGuest = false;
-      return true;
-    } catch (e) {
-      return false;
-    }
+static Future<bool> signInWithGoogle() async {
+  try {
+    await _supabase.auth.signInWithOAuth(
+      OAuthProvider.google,
+      redirectTo: 'io.supabase.tatilbulucu://login-callback',
+      authScreenLaunchMode: LaunchMode.externalApplication,
+    );
+    _isGuest = false;
+    return true;
+  } catch (e) {
+    return false;
   }
+}
 
   // ============================================================
   // APPLE İLE GİRİŞ

@@ -28,7 +28,7 @@ static const String pythonRouteEndpoint = '$pythonBaseUrl/route';
 
   // Timeout süreleri
   static const Duration connectTimeout = Duration(seconds: 10);
-  static const Duration receiveTimeout = Duration(seconds: 15);
+ static const Duration receiveTimeout = Duration(seconds: 8);
 
   // Sigorta fiyatı
   static const int insurancePrice = 450;

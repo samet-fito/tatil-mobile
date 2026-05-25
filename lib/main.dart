@@ -14,6 +14,9 @@ void main() async {
   await Supabase.initialize(
     url: AppConstants.supabaseUrl,
     anonKey: AppConstants.supabaseAnonKey,
+    authOptions: const FlutterAuthClientOptions(
+      authFlowType: AuthFlowType.implicit,
+    ),
   );
 
   runApp(const TatilBulucuApp());
@@ -43,19 +46,21 @@ class AuthWrapper extends StatefulWidget {
 class _AuthWrapperState extends State<AuthWrapper> {
   @override
   void initState() {
-  super.initState();
-  AuthService.initGuestState().then((_) {
-    if (mounted) setState(() {});
-  });
-  Supabase.instance.client.auth.onAuthStateChange.listen((data) {
-    if (mounted) setState(() {});
-  });
-}
+    super.initState();
+    AuthService.initGuestState().then((_) {
+      if (mounted) setState(() {});
+    });
+    Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+      if (mounted) setState(() {});
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final session = Supabase.instance.client.auth.currentSession;
-    if (session != null) {
+    final isGuest = AuthService.isGuest;
+
+    if (session != null || isGuest) {
       return const SearchScreen();
     }
     return const LoginScreen();

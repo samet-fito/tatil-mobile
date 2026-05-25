@@ -64,16 +64,14 @@ class _CheckoutAuthSheetState extends State<CheckoutAuthSheet> {
   }
 
   Future<void> _signInWithApple() async {
-    setState(() => _isLoading = true);
-    final success = await AuthService.signInWithApple();
-    if (mounted) {
-      setState(() => _isLoading = false);
-      if (success) {
-        Navigator.pop(context);
-        widget.onSuccess();
-      }
-    }
-  }
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(
+      content: Text('🍎 Apple girişi yakında aktif olacak!'),
+      backgroundColor: Colors.black,
+      duration: Duration(seconds: 2),
+    ),
+  );
+}
 
   void _continueWithoutLogin() {
     Navigator.pop(context);

@@ -30,20 +30,14 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _signInWithApple() async {
-    setState(() => _isLoading = true);
-    final success = await AuthService.signInWithApple();
-    if (mounted) {
-      setState(() => _isLoading = false);
-      if (!success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Apple ile giriş başarısız. Tekrar dene.'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(
+      content: Text('🍎 Apple girişi yakında aktif olacak!'),
+      backgroundColor: Colors.black,
+      duration: Duration(seconds: 2),
+    ),
+  );
+}
 
   Future<void> _continueAsGuest() async {
     await AuthService.continueAsGuest();
