@@ -1,3 +1,4 @@
+import 'detail_screen.dart';
 import 'package:flutter/material.dart';
 import '../models/package_model.dart';
 import '../models/search_model.dart';
@@ -241,16 +242,16 @@ class _ResultsScreenState extends State<ResultsScreen> {
                 return PackageCard(
                   package: _packages[index],
                   onTap: () {
-                    // TODO: Detay sayfasına git
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          '${_packages[index].cityName} detay sayfası yakında!',
-                        ),
-                        backgroundColor: AppTheme.accent,
-                      ),
-                    );
-                  },
+  Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (context) => DetailScreen(
+        package: _packages[index],
+        searchModel: widget.searchModel,
+      ),
+    ),
+  );
+},
                 );
               },
             ),
