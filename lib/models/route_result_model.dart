@@ -33,28 +33,57 @@ class RouteResultModel {
   bool get hasWarning => !isAffordable || alternativeSuggestion != null;
 
   factory RouteResultModel.fromJson(Map<String, dynamic> json) {
+    // Python motoru formatı (destination_iata)
+    if (json.containsKey('destination_iata')) {
+      return RouteResultModel(
+        destinationIata: json['destination_iata'] ?? '',
+        cityName: json['city_name'] ?? '',
+        country: json['country'] ?? '',
+        nights: json['nights'] ?? 0,
+        passengers: json['passengers'] ?? 1,
+        score: (json['score'] ?? 0).toDouble(),
+        isAffordable: json['is_affordable'] ?? false,
+        flight: json['flight'] != null
+            ? RouteFlightModel.fromJson(json['flight'])
+            : null,
+        hotel: json['hotel'] != null
+            ? RouteHotelModel.fromJson(json['hotel'])
+            : null,
+        transfer: json['transfer'] != null
+            ? RouteTransferModel.fromJson(json['transfer'])
+            : null,
+        budgetBreakdown: RouteBudgetBreakdown.fromJson(
+            json['budget_breakdown'] ?? {}),
+        estimatedCost: RouteEstimatedCost.fromJson(
+            json['estimated_cost'] ?? {}),
+        alternativeSuggestion: json['alternative_suggestion'],
+      );
+    }
+
+    // Node.js fallback formatı (cityName, iataCode)
+    final bd = json['budgetBreakdown'] ?? {};
+    final breakdown = bd['breakdown'] ?? {};
+    final cost = json['estimatedCost'] ?? {};
+    final nights = json['nights'] ?? 1;
+
     return RouteResultModel(
-      destinationIata: json['destination_iata'] ?? '',
-      cityName: json['city_name'] ?? '',
+      destinationIata: json['iataCode'] ?? '',
+      cityName: json['cityName'] ?? '',
       country: json['country'] ?? '',
-      nights: json['nights'] ?? 0,
+      nights: nights,
       passengers: json['passengers'] ?? 1,
       score: (json['score'] ?? 0).toDouble(),
-      isAffordable: json['is_affordable'] ?? false,
-      flight: json['flight'] != null
-          ? RouteFlightModel.fromJson(json['flight'])
+      isAffordable: json['isAffordable'] ?? false,
+      flight: json['flightInfo'] != null
+          ? RouteFlightModel.fromNodeJson(json['flightInfo'], cost)
           : null,
-      hotel: json['hotel'] != null
-          ? RouteHotelModel.fromJson(json['hotel'])
+      hotel: json['hotelInfo'] != null
+          ? RouteHotelModel.fromNodeJson(json['hotelInfo'], cost, nights)
           : null,
-      transfer: json['transfer'] != null
-          ? RouteTransferModel.fromJson(json['transfer'])
-          : null,
-      budgetBreakdown:
-          RouteBudgetBreakdown.fromJson(json['budget_breakdown'] ?? {}),
-      estimatedCost:
-          RouteEstimatedCost.fromJson(json['estimated_cost'] ?? {}),
-      alternativeSuggestion: json['alternative_suggestion'],
+      transfer: null,
+      budgetBreakdown: RouteBudgetBreakdown.fromNodeJson(bd, breakdown),
+      estimatedCost: RouteEstimatedCost.fromNodeJson(cost),
+      alternativeSuggestion: null,
     );
   }
 }
@@ -89,6 +118,19 @@ class RouteFlightModel {
       pricePerPersonTL: (json['price_per_person_tl'] ?? 0).toDouble(),
     );
   }
+
+  factory RouteFlightModel.fromNodeJson(
+      Map<String, dynamic> json, Map cost) {
+    return RouteFlightModel(
+      airline: json['airline'] ?? '--',
+      duration: json['duration'] ?? '--',
+      stops: json['stops'] ?? 0,
+      departureTime: json['departureTime'] ?? '--',
+      arrivalTime: json['arrivalTime'] ?? '--',
+      priceTL: (cost['flight'] ?? 0).toDouble(),
+      pricePerPersonTL: (cost['flight'] ?? 0).toDouble(),
+    );
+  }
 }
 
 class RouteHotelModel {
@@ -103,6 +145,7 @@ class RouteHotelModel {
   final double totalPrice;
   final List<String> features;
   final bool isPartner;
+  final double commissionRate;
 
   RouteHotelModel({
     required this.id,
@@ -116,6 +159,7 @@ class RouteHotelModel {
     required this.totalPrice,
     required this.features,
     required this.isPartner,
+    this.commissionRate = 0.12,
   });
 
   factory RouteHotelModel.fromJson(Map<String, dynamic> json) {
@@ -131,6 +175,26 @@ class RouteHotelModel {
       totalPrice: (json['total_price'] ?? 0).toDouble(),
       features: List<String>.from(json['features'] ?? []),
       isPartner: json['is_partner'] ?? false,
+      commissionRate: (json['commission_rate'] ?? 0.12).toDouble(),
+    );
+  }
+
+  factory RouteHotelModel.fromNodeJson(
+      Map<String, dynamic> json, Map cost, int nights) {
+    final hotelCost = (cost['hotel'] ?? 0).toDouble();
+    return RouteHotelModel(
+      id: '',
+      name: json['name'] ?? '--',
+      city: '',
+      hotelType: 'hotel',
+      starRating: (json['stars'] ?? 3).toDouble(),
+      reviewScore: (json['rating'] ?? 7).toDouble(),
+      reviewCount: json['reviewCount'] ?? 0,
+      pricePerNight: nights > 0 ? hotelCost / nights : hotelCost,
+      totalPrice: hotelCost,
+      features: List<String>.from(json['amenities'] ?? []),
+      isPartner: false,
+      commissionRate: 0.12,
     );
   }
 }
@@ -215,6 +279,26 @@ class RouteBudgetBreakdown {
       pocketPercentage: json['pocket_percentage'] ?? 30,
     );
   }
+
+  factory RouteBudgetBreakdown.fromNodeJson(
+      Map<String, dynamic> bd, Map<String, dynamic> breakdown) {
+    final transport = breakdown['transport'] ?? {};
+    final accommodation = breakdown['accommodation'] ?? {};
+    final pocket = breakdown['pocketMoney'] ?? {};
+    return RouteBudgetBreakdown(
+      segment: bd['segment'] ?? 'standard',
+      segmentLabel: bd['segmentLabel'] ?? 'Standart',
+      totalBudgetTL: (bd['totalBudgetTL'] ?? 0).toDouble(),
+      flightBudget: (transport['total'] ?? 0).toDouble(),
+      hotelBudget: (accommodation['total'] ?? 0).toDouble(),
+      transferBudget: 0,
+      pocketMoney: (pocket['total'] ?? 0).toDouble(),
+      flightPercentage: transport['percentage'] ?? 25,
+      hotelPercentage: accommodation['percentage'] ?? 40,
+      transferPercentage: 5,
+      pocketPercentage: pocket['percentage'] ?? 30,
+    );
+  }
 }
 
 class RouteEstimatedCost {
@@ -241,6 +325,17 @@ class RouteEstimatedCost {
       hotel: (json['hotel'] ?? 0).toInt(),
       transfer: (json['transfer'] ?? 0).toInt(),
       pocketMoney: (json['pocket_money'] ?? 0).toInt(),
+      remaining: (json['remaining'] ?? 0).toInt(),
+    );
+  }
+
+  factory RouteEstimatedCost.fromNodeJson(Map<String, dynamic> json) {
+    return RouteEstimatedCost(
+      total: (json['total'] ?? 0).toInt(),
+      flight: (json['flight'] ?? 0).toInt(),
+      hotel: (json['hotel'] ?? 0).toInt(),
+      transfer: 0,
+      pocketMoney: (json['living'] ?? json['pocket_money'] ?? 0).toInt(),
       remaining: (json['remaining'] ?? 0).toInt(),
     );
   }

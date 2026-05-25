@@ -435,10 +435,19 @@ class ApiService {
     // Python'dan direkt gelen yapı: data (liste)
     List list = [];
     if (innerData is List) {
-      list = innerData;
-    } else if (innerData is Map && innerData['packages'] != null) {
-      list = innerData['packages'] as List;
+  list = innerData;
+} else if (innerData is Map) {
+  if (innerData['packages'] != null) {
+    list = innerData['packages'] as List;
+  } else if (innerData['data'] != null) {
+    final inner = innerData['data'];
+    if (inner is List) {
+      list = inner;
+    } else if (inner is Map && inner['packages'] != null) {
+      list = inner['packages'] as List;
     }
+  }
+}
     return list
         .map((item) => RouteResultModel.fromJson(item as Map<String, dynamic>))
         .toList();
