@@ -1,3 +1,4 @@
+import 'results_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import '../models/search_model.dart';
@@ -72,17 +73,14 @@ class _SearchScreenState extends State<SearchScreen>
     }
 
     setState(() => _isLoading = true);
-
-    // TODO: API çağrısı burada yapılacak
-    await Future.delayed(const Duration(seconds: 2));
-
+    await Future.delayed(const Duration(milliseconds: 300));
     setState(() => _isLoading = false);
 
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('🚀 Paketler aranıyor... (Backend bağlantısı yakında!)'),
-          backgroundColor: AppTheme.accent,
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ResultsScreen(searchModel: _model),
         ),
       );
     }
