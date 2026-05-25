@@ -1,3 +1,4 @@
+import 'chat_screen.dart';
 import 'package:flutter/material.dart';
 import '../models/package_model.dart';
 import '../models/search_model.dart';
@@ -90,6 +91,22 @@ class _DetailScreenState extends State<DetailScreen> {
               icon: const Icon(Icons.arrow_back, color: Colors.white),
               onPressed: () => Navigator.pop(context),
             ),
+            actions: [
+  IconButton(
+    icon: const Icon(Icons.chat_bubble_outline, color: Colors.white),
+    onPressed: () => Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ChatScreen(
+          cityName: widget.package.cityName,
+          destinationIata: widget.package.iataCode,
+          sessionId: _sessionId,
+          remainingBudget: widget.package.estimatedCost.remaining.toDouble(),
+        ),
+      ),
+    ),
+  ),
+],
             flexibleSpace: FlexibleSpaceBar(
               background: Container(
                 decoration: const BoxDecoration(
