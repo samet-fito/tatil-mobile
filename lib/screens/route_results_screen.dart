@@ -1,3 +1,4 @@
+import '../widgets/checkout_auth_sheet.dart';
 import 'package:flutter/material.dart';
 import '../models/route_result_model.dart';
 import '../models/search_model.dart';
@@ -234,15 +235,22 @@ class _RouteResultsScreenState extends State<RouteResultsScreen> {
                   route: _routes[index],
                   rank: index + 1,
                   onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          '${_routes[index].cityName} detay sayfası yakında!',
-                        ),
-                        backgroundColor: AppTheme.accent,
-                      ),
-                    );
-                  },
+  CheckoutAuthSheet.show(
+    context,
+    cityName: _routes[index].cityName,
+    totalPrice: _routes[index].estimatedCost.total,
+    onSuccess: () {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '${_routes[index].cityName} rezervasyonu başlatıldı!',
+          ),
+          backgroundColor: AppTheme.accent,
+        ),
+      );
+    },
+  );
+},
                 );
               },
             ),

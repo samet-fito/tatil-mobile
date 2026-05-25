@@ -32,4 +32,8 @@ static const String pythonRouteEndpoint = '$pythonBaseUrl/route';
 
   // Sigorta fiyatı
   static const int insurancePrice = 450;
+ static const String supabaseUrl = 'http://dcktytulwlqlwpzyxdst.supabase.co';
+  static const String supabaseAnonKey = 'SeyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRja3R5dHVsd2xxbHdwenl4ZHN0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk2MTk4MjQsImV4cCI6MjA5NTE5NTgyNH0.hVy-szhTRbYBcKshLyyyF2_k3c7oRiDCTcmAKXPV90o';
 }
+// Supabase
+ 
