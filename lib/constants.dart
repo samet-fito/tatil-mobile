@@ -14,7 +14,8 @@ class AppConstants {
   static const String baseUrl = 'http://$_macIp:$_port/api/v1';
 // Python FastAPI URL
 static const String pythonBaseUrl = 'http://$_macIp:8000/api/v1';
-static const String pythonSearchEndpoint = '$pythonBaseUrl/routes/search';
+static const String pythonSearchEndpoint = '$baseUrl/gateway/search';
+static const String gatewayHealthEndpoint = '$baseUrl/gateway/health';
 static const String pythonRouteEndpoint = '$pythonBaseUrl/route';
 
   // API endpoint'leri

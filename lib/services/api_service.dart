@@ -419,23 +419,31 @@ class ApiService {
         Uri.parse(AppConstants.pythonSearchEndpoint),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          'origin_iata': originIata,
-          'departure_date': departureDate.toIso8601String().split('T')[0],
-          'return_date': returnDate.toIso8601String().split('T')[0],
-          'total_budget_tl': totalBudgetTL,
-          'passengers': passengers,
-        }),
+  'originIata': originIata,
+  'departureDate': departureDate.toIso8601String().split('T')[0],
+  'returnDate': returnDate.toIso8601String().split('T')[0],
+  'totalBudgetTL': totalBudgetTL,
+  'passengers': passengers,
+}),
       ).timeout(AppConstants.receiveTimeout);
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        if (data['success'] == true) {
-          final list = data['data'] as List? ?? [];
-          return list
-              .map((item) => RouteResultModel.fromJson(item))
-              .toList();
-        }
-      }
+  final data = jsonDecode(response.body);
+  if (data['success'] == true) {
+    final innerData = data['data'];
+    // Gateway'den gelen yapı: data.packages (liste)
+    // Python'dan direkt gelen yapı: data (liste)
+    List list = [];
+    if (innerData is List) {
+      list = innerData;
+    } else if (innerData is Map && innerData['packages'] != null) {
+      list = innerData['packages'] as List;
+    }
+    return list
+        .map((item) => RouteResultModel.fromJson(item as Map<String, dynamic>))
+        .toList();
+  }
+}
     } catch (e) {
       // Mock data döndür
     }
