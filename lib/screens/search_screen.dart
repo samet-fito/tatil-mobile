@@ -1,3 +1,4 @@
+import 'route_results_screen.dart';
 import 'medical_screen.dart';
 import 'results_screen.dart';
 import 'medical_screen.dart';
@@ -97,7 +98,7 @@ Future<void> _search() async {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => ResultsScreen(searchModel: _model),
+        builder: (context) => RouteResultsScreen(searchModel: _model),
       ),
     );
   }

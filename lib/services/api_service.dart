@@ -1,3 +1,4 @@
+import '../models/route_result_model.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../constants.dart';
@@ -401,6 +402,119 @@ class ApiService {
           'commission_rate': 0.20,
         },
       },
+    ];
+  }
+// ============================================================
+  // PYTHON ROTA MOTORU
+  // ============================================================
+  static Future<List<RouteResultModel>> searchRoutes({
+    required String originIata,
+    required DateTime departureDate,
+    required DateTime returnDate,
+    required double totalBudgetTL,
+    required int passengers,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse(AppConstants.pythonSearchEndpoint),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'origin_iata': originIata,
+          'departure_date': departureDate.toIso8601String().split('T')[0],
+          'return_date': returnDate.toIso8601String().split('T')[0],
+          'total_budget_tl': totalBudgetTL,
+          'passengers': passengers,
+        }),
+      ).timeout(AppConstants.receiveTimeout);
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['success'] == true) {
+          final list = data['data'] as List? ?? [];
+          return list
+              .map((item) => RouteResultModel.fromJson(item))
+              .toList();
+        }
+      }
+    } catch (e) {
+      // Mock data döndür
+    }
+    return _getMockRouteResults(
+      originIata, departureDate, returnDate, totalBudgetTL, passengers,
+    );
+  }
+
+  static List<RouteResultModel> _getMockRouteResults(
+    String originIata,
+    DateTime departureDate,
+    DateTime returnDate,
+    double budget,
+    int passengers,
+  ) {
+    final nights = returnDate.difference(departureDate).inDays;
+    final seg = budget < 25000 ? 'economic' : budget < 60000 ? 'standard' : 'premium';
+    final segLabel = budget < 25000 ? 'Ekonomik' : budget < 60000 ? 'Standart' : 'Premium';
+
+    Map<String, dynamic> breakdown(double b) => {
+      'segment': seg,
+      'segment_label': segLabel,
+      'total_budget_tl': b,
+      'flight_budget': (b * 0.25).toInt(),
+      'hotel_budget': (b * 0.40).toInt(),
+      'transfer_budget': (b * 0.05).toInt(),
+      'pocket_money': (b * 0.30).toInt(),
+      'flight_percentage': 25,
+      'hotel_percentage': 40,
+      'transfer_percentage': 5,
+      'pocket_percentage': 30,
+    };
+
+    return [
+      RouteResultModel.fromJson({
+        'destination_iata': 'AYT',
+        'city_name': 'Antalya',
+        'country': 'Turkey',
+        'nights': nights,
+        'passengers': passengers,
+        'score': 100.0,
+        'is_affordable': true,
+        'flight': {'airline': 'THY', 'duration': '1s 10dk', 'stops': 0, 'departure_time': '09:00', 'arrival_time': '10:10', 'price_tl': (budget * 0.08).toInt(), 'price_per_person_tl': (budget * 0.08 / passengers).toInt()},
+        'hotel': {'id': 'h1', 'name': 'Kaleiçi Butik Otel', 'city': 'Antalya', 'hotel_type': 'boutique', 'star_rating': 4.0, 'review_score': 8.8, 'review_count': 342, 'price_per_night': (budget * 0.06).toInt(), 'total_price': (budget * 0.06 * nights).toInt(), 'features': ['WiFi', 'Kahvaltı', 'Klima'], 'is_partner': true},
+        'transfer': {'id': 't1', 'company_name': 'Antalya VIP', 'vehicle_type': 'sedan', 'capacity': 4, 'route_from': 'Havalimanı', 'route_to': 'Merkez', 'price_fixed': (budget * 0.02).toInt(), 'duration_minutes': 30, 'features': ['Klima', 'WiFi']},
+        'budget_breakdown': breakdown(budget),
+        'estimated_cost': {'total': (budget * 0.50).toInt(), 'flight': (budget * 0.08).toInt(), 'hotel': (budget * 0.12).toInt(), 'transfer': (budget * 0.02).toInt(), 'pocket_money': (budget * 0.28).toInt(), 'remaining': (budget * 0.50).toInt()},
+        'alternative_suggestion': null,
+      }),
+      RouteResultModel.fromJson({
+        'destination_iata': 'ATH',
+        'city_name': 'Atina',
+        'country': 'Greece',
+        'nights': nights,
+        'passengers': passengers,
+        'score': 88.0,
+        'is_affordable': true,
+        'flight': {'airline': 'Aegean', 'duration': '1s 55dk', 'stops': 0, 'departure_time': '13:20', 'arrival_time': '15:15', 'price_tl': (budget * 0.18).toInt(), 'price_per_person_tl': (budget * 0.18 / passengers).toInt()},
+        'hotel': {'id': 'h2', 'name': 'Atina Plaka Pansiyon', 'city': 'Atina', 'hotel_type': 'pension', 'star_rating': 3.0, 'review_score': 8.4, 'review_count': 445, 'price_per_night': (budget * 0.05).toInt(), 'total_price': (budget * 0.05 * nights).toInt(), 'features': ['WiFi', 'Akropolis Manzarası'], 'is_partner': true},
+        'transfer': {'id': 't2', 'company_name': 'Athens Transfer', 'vehicle_type': 'sedan', 'capacity': 4, 'route_from': 'Havalimanı', 'route_to': 'Plaka', 'price_fixed': (budget * 0.04).toInt(), 'duration_minutes': 40, 'features': ['Klima', 'WiFi']},
+        'budget_breakdown': breakdown(budget),
+        'estimated_cost': {'total': (budget * 0.77).toInt(), 'flight': (budget * 0.18).toInt(), 'hotel': (budget * 0.25).toInt(), 'transfer': (budget * 0.04).toInt(), 'pocket_money': (budget * 0.30).toInt(), 'remaining': (budget * 0.23).toInt()},
+        'alternative_suggestion': null,
+      }),
+      RouteResultModel.fromJson({
+        'destination_iata': 'BUD',
+        'city_name': 'Budapeşte',
+        'country': 'Hungary',
+        'nights': nights,
+        'passengers': passengers,
+        'score': 45.0,
+        'is_affordable': false,
+        'flight': {'airline': 'Wizz Air', 'duration': '2s 20dk', 'stops': 0, 'departure_time': '09:00', 'arrival_time': '11:20', 'price_tl': (budget * 0.30).toInt(), 'price_per_person_tl': (budget * 0.30 / passengers).toInt()},
+        'hotel': {'id': 'h3', 'name': 'Budapeşte Ruin Apart', 'city': 'Budapeşte', 'hotel_type': 'apart', 'star_rating': 3.0, 'review_score': 8.6, 'review_count': 523, 'price_per_night': (budget * 0.06).toInt(), 'total_price': (budget * 0.06 * nights).toInt(), 'features': ['WiFi', 'Mutfak'], 'is_partner': true},
+        'transfer': null,
+        'budget_breakdown': breakdown(budget),
+        'estimated_cost': {'total': (budget * 1.06).toInt(), 'flight': (budget * 0.30).toInt(), 'hotel': (budget * 0.30).toInt(), 'transfer': 0, 'pocket_money': (budget * 0.30).toInt(), 'remaining': -(budget * 0.06).toInt()},
+        'alternative_suggestion': 'Konaklama süresini ${nights - 2} geceye indirirsen bütçene uygun hale gelir.',
+      }),
     ];
   }
 }
