@@ -1,3 +1,6 @@
+import 'medical_screen.dart';
+import 'results_screen.dart';
+import 'medical_screen.dart';
 import 'results_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -61,30 +64,44 @@ class _SearchScreenState extends State<SearchScreen>
     }
   }
 
-  Future<void> _search() async {
-    if (!_model.isValid) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Lütfen tüm alanları doldurun.'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-
-    setState(() => _isLoading = true);
-    await Future.delayed(const Duration(milliseconds: 300));
-    setState(() => _isLoading = false);
-
-    if (mounted) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => ResultsScreen(searchModel: _model),
-        ),
-      );
-    }
+Future<void> _search() async {
+  if (!_model.isValid) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Lütfen tüm alanları doldurun.'),
+        backgroundColor: Colors.red,
+      ),
+    );
+    return;
   }
+
+  setState(() => _isLoading = true);
+  await Future.delayed(const Duration(milliseconds: 300));
+  setState(() => _isLoading = false);
+
+  if (!mounted) return;
+
+  if (_model.holidayType == 'health') {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => MedicalScreen(
+          searchModel: _model,
+          destinationIata: _model.originIata == 'IST' ? 'IST' : 'AYT',
+          cityName: _model.originIata == 'IST' ? 'İstanbul' : 'Antalya',
+          flightCostTL: _model.totalBudgetTL * 0.10,
+        ),
+      ),
+    );
+  } else {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ResultsScreen(searchModel: _model),
+      ),
+    );
+  }
+}
 
   @override
   Widget build(BuildContext context) {

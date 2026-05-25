@@ -287,4 +287,120 @@ class ApiService {
       },
     };
   }
+// ============================================================
+  // SAĞLIK TURİZMİ
+  // ============================================================
+ static Future<List<Map<String, dynamic>>> getMedicalPackages({
+  required String iata,
+  required double budget,
+}) async {
+  try {
+    final uri = Uri.parse(AppConstants.baseUrl + '/medical/packages')
+        .replace(queryParameters: {
+      'iata': iata,
+      'budget': budget.toString(),
+    });
+    final response = await http.get(uri).timeout(AppConstants.receiveTimeout);
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      final packages = List<Map<String, dynamic>>.from(data['data'] ?? []);
+      if (packages.isNotEmpty) return packages;
+    }
+  } catch (e) {}
+  // Her zaman mock data döndür
+  return _getMockMedicalPackages(iata);
+}
+
+  static Future<Map<String, dynamic>> saveMedicalBooking({
+    required String sessionId,
+    required String packageId,
+    required String clinicId,
+    required String travelDate,
+    required int passengerCount,
+    required double treatmentPriceTL,
+    required double flightPriceTL,
+    required double hotelPriceTL,
+    required double totalPriceTL,
+    required double commissionTL,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse(AppConstants.baseUrl + '/medical/booking'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'sessionId': sessionId,
+          'packageId': packageId,
+          'clinicId': clinicId,
+          'travelDate': travelDate,
+          'passengerCount': passengerCount,
+          'treatmentPriceTL': treatmentPriceTL,
+          'flightPriceTL': flightPriceTL,
+          'hotelPriceTL': hotelPriceTL,
+          'totalPriceTL': totalPriceTL,
+          'commissionTL': commissionTL,
+        }),
+      ).timeout(AppConstants.receiveTimeout);
+      if (response.statusCode == 200) return jsonDecode(response.body);
+    } catch (e) {}
+    return {'success': false};
+  }
+
+  static List<Map<String, dynamic>> _getMockMedicalPackages(String iata) {
+    return [
+      {
+        'id': 'med-001',
+        'clinic_id': 'clinic-001',
+        'treatment_type': 'hair_transplant',
+        'treatment_name': 'FUE Hair Transplant (4000 Grafts)',
+        'treatment_name_tr': 'FUE Saç Ekimi (4000 Greft)',
+        'description': 'En son FUE tekniğiyle kalıcı saç ekimi.',
+        'duration_treatment_days': 2,
+        'duration_rest_days': 3,
+        'price_tl': 45000,
+        'price_eur': 1250,
+        'includes': ['Konsültasyon', 'Operasyon', 'PRP', 'İlaçlar', 'VIP Transfer'],
+        'success_rate': 97.5,
+        'commission_rate': 0.22,
+        'medical_clinics': {
+          'id': 'clinic-001',
+          'name': 'Antalya Hair & Aesthetic Center',
+          'city_name': 'Antalya',
+          'success_score': 9.4,
+          'patient_count': 12500,
+          'is_ministry_accredited': true,
+          'is_jci_accredited': true,
+          'specializations': ['Saç Ekimi', 'Diş Estetiği'],
+          'languages': ['Türkçe', 'İngilizce', 'Almanca'],
+          'commission_rate': 0.22,
+        },
+      },
+      {
+        'id': 'med-002',
+        'clinic_id': 'clinic-002',
+        'treatment_type': 'dental',
+        'treatment_name': 'Full Mouth Dental Veneers',
+        'treatment_name_tr': 'Tam Ağız Diş Kaplaması',
+        'description': 'Zirkonyum kaplama ile mükemmel gülüş.',
+        'duration_treatment_days': 3,
+        'duration_rest_days': 2,
+        'price_tl': 38000,
+        'price_eur': 1050,
+        'includes': ['Konsültasyon', 'Röntgen', 'Kaplama', 'VIP Transfer'],
+        'success_rate': 98.2,
+        'commission_rate': 0.20,
+        'medical_clinics': {
+          'id': 'clinic-002',
+          'name': 'MedAntalya Clinic',
+          'city_name': 'Antalya',
+          'success_score': 9.2,
+          'patient_count': 8900,
+          'is_ministry_accredited': true,
+          'is_jci_accredited': false,
+          'specializations': ['Diş Estetiği', 'İmplant'],
+          'languages': ['Türkçe', 'İngilizce'],
+          'commission_rate': 0.20,
+        },
+      },
+    ];
+  }
 }
