@@ -1,3 +1,6 @@
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../services/admin_service.dart';
+import 'admin_screen.dart';
 import 'route_results_screen.dart';
 import 'medical_screen.dart';
 import 'results_screen.dart';
@@ -117,6 +120,41 @@ Future<void> _search() async {
             floating: false,
             pinned: true,
             backgroundColor: isHealth ? AppTheme.health : AppTheme.primary,
+            actions: [
+  IconButton(
+    icon: const Icon(Icons.admin_panel_settings, color: Colors.white),
+    onPressed: () async {
+  // Önce Google ile giriş yapıldı mı kontrol et
+  final supabaseUser = Supabase.instance.client.auth.currentUser;
+  if (supabaseUser == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Admin paneli için Google ile giriş yapmalısınız.'),
+        backgroundColor: Colors.red,
+      ),
+    );
+    return;
+  }
+
+  final isAdmin = await AdminService.isAdmin();
+  if (isAdmin && mounted) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const AdminScreen(),
+      ),
+    );
+  } else {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Bu alana erişim yetkiniz yok.'),
+        backgroundColor: Colors.red,
+      ),
+    );
+  }
+},
+  ),
+],
             flexibleSpace: FlexibleSpaceBar(
               background: AnimatedContainer(
                 duration: const Duration(milliseconds: 400),

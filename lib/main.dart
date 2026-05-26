@@ -1,3 +1,4 @@
+import 'package:shared_preferences/shared_preferences.dart';
 import 'services/auth_service.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -10,6 +11,11 @@ import 'constants.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('tr_TR', null);
+
+  // Misafir modunu temizle (Google ile giriş için)
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.remove('is_guest');
+  await prefs.remove('guest_session_id');
 
   await Supabase.initialize(
     url: AppConstants.supabaseUrl,
@@ -44,11 +50,13 @@ class AuthWrapper extends StatefulWidget {
 }
 
 class _AuthWrapperState extends State<AuthWrapper> {
+  bool _initialized = false;
+
   @override
   void initState() {
     super.initState();
     AuthService.initGuestState().then((_) {
-      if (mounted) setState(() {});
+      if (mounted) setState(() => _initialized = true);
     });
     Supabase.instance.client.auth.onAuthStateChange.listen((data) {
       if (mounted) setState(() {});
@@ -57,6 +65,14 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
   @override
   Widget build(BuildContext context) {
+    if (!_initialized) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
     final session = Supabase.instance.client.auth.currentSession;
     final isGuest = AuthService.isGuest;
 

@@ -21,6 +21,8 @@ static Future<bool> signInWithGoogle() async {
       authScreenLaunchMode: LaunchMode.externalApplication,
     );
     _isGuest = false;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('is_guest', false);
     return true;
   } catch (e) {
     return false;
