@@ -21,7 +21,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!success) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Google ile giriş başarısız. Tekrar dene.'),
+            content: Text('Giriş başarısız. Tekrar deneyin.'),
             backgroundColor: Colors.red,
           ),
         );
@@ -30,14 +30,14 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _signInWithApple() async {
-  ScaffoldMessenger.of(context).showSnackBar(
-    const SnackBar(
-      content: Text('🍎 Apple girişi yakında aktif olacak!'),
-      backgroundColor: Colors.black,
-      duration: Duration(seconds: 2),
-    ),
-  );
-}
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Apple girişi yakında aktif olacak.'),
+        backgroundColor: Colors.black,
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
 
   Future<void> _continueAsGuest() async {
     await AuthService.continueAsGuest();
@@ -52,136 +52,109 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.primary,
+      backgroundColor: AppTheme.bgPrimary,
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 28),
+          padding: const EdgeInsets.symmetric(horizontal: 32),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Spacer(flex: 2),
 
-              // Logo & Başlık
-              Container(
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(24),
-                ),
-                child: const Center(
-                  child: Text('✈️', style: TextStyle(fontSize: 40)),
-                ),
-              ),
-              const SizedBox(height: 24),
+              // Başlık
               const Text(
                 'Tatil Bulucu',
                 style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 32,
+                  color: AppTheme.textPrimary,
+                  fontSize: 36,
                   fontWeight: FontWeight.w700,
+                  letterSpacing: -0.5,
                 ),
               ),
-              const SizedBox(height: 8),
-              Text(
-                'Bütçene göre rüya tatilini bul',
+              const SizedBox(height: 12),
+
+              // Açıklama
+              const Text(
+                'Bütçeni gir, sana en uygun\nuçuş, otel ve transfer\npaketini saniyeler içinde bul.',
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.7),
+                  color: AppTheme.textMuted,
                   fontSize: 16,
+                  height: 1.6,
                 ),
               ),
+
+              const Spacer(flex: 1),
+
+              // Özellik listesi
+              _featureLine('Yapay zeka destekli rota motoru'),
+              const SizedBox(height: 10),
+              _featureLine('Yerel partner otel ve transfer ağı'),
+              const SizedBox(height: 10),
+              _featureLine('Gerçek zamanlı bütçe optimizasyonu'),
 
               const Spacer(flex: 2),
 
-              // Özellikler
-              _buildFeatureRow('🧠', 'AI destekli akıllı rota motoru'),
-              const SizedBox(height: 12),
-              _buildFeatureRow('💰', 'Bütçene göre optimize paketler'),
-              const SizedBox(height: 12),
-              _buildFeatureRow('🏨', 'Yerel partner otel & transfer'),
-              const SizedBox(height: 12),
-              _buildFeatureRow('✈️', 'Gerçek zamanlı uçuş fiyatları'),
-
-              const Spacer(flex: 3),
-
               // Google butonu
-              _buildSocialButton(
-                onTap: _isLoading ? null : _signInWithGoogle,
-                icon: '🔵',
+              _buildButton(
                 label: 'Google ile Devam Et',
                 bgColor: Colors.white,
-                textColor: AppTheme.textPrimary,
+                textColor: const Color(0xFF1F1F1F),
+                onTap: _isLoading ? null : _signInWithGoogle,
               ),
               const SizedBox(height: 12),
 
               // Apple butonu
-              _buildSocialButton(
-                onTap: _isLoading ? null : _signInWithApple,
-                icon: '🍎',
+              _buildButton(
                 label: 'Apple ile Devam Et',
                 bgColor: Colors.black,
                 textColor: Colors.white,
+                border: Border.all(color: AppTheme.border),
+                onTap: _isLoading ? null : _signInWithApple,
               ),
               const SizedBox(height: 20),
 
               // Ayırıcı
               Row(
                 children: [
-                  Expanded(
-                    child: Divider(color: Colors.white.withOpacity(0.2)),
-                  ),
+                  Expanded(child: Divider(color: AppTheme.border)),
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: Text(
                       'veya',
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.5),
+                        color: AppTheme.textMuted.withOpacity(0.6),
                         fontSize: 13,
                       ),
                     ),
                   ),
-                  Expanded(
-                    child: Divider(color: Colors.white.withOpacity(0.2)),
-                  ),
+                  Expanded(child: Divider(color: AppTheme.border)),
                 ],
               ),
               const SizedBox(height: 20),
 
               // Misafir butonu
-              GestureDetector(
+              _buildButton(
+                label: 'Misafir Olarak Devam Et',
+                bgColor: Colors.transparent,
+                textColor: AppTheme.textSecondary,
+                border: Border.all(color: AppTheme.border),
                 onTap: _isLoading ? null : _continueAsGuest,
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  decoration: BoxDecoration(
-                    color: Colors.transparent,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: Colors.white.withOpacity(0.3),
-                    ),
-                  ),
-                  child: const Center(
-                    child: Text(
-                      '👤 Misafir Olarak Devam Et',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ),
               ),
 
-              const SizedBox(height: 16),
-              Text(
-                'Giriş yaparak Gizlilik Politikası ve\nKullanım Koşullarını kabul etmiş olursunuz.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.4),
-                  fontSize: 11,
+              const SizedBox(height: 24),
+
+              // Alt not
+              Center(
+                child: Text(
+                  'Devam ederek Gizlilik Politikasını kabul etmiş olursunuz.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: AppTheme.textMuted.withOpacity(0.5),
+                    fontSize: 11,
+                  ),
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
             ],
           ),
         ),
@@ -189,15 +162,22 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Widget _buildFeatureRow(String emoji, String text) {
+  Widget _featureLine(String text) {
     return Row(
       children: [
-        Text(emoji, style: const TextStyle(fontSize: 18)),
+        Container(
+          width: 4,
+          height: 4,
+          decoration: const BoxDecoration(
+            color: AppTheme.accent,
+            shape: BoxShape.circle,
+          ),
+        ),
         const SizedBox(width: 12),
         Text(
           text,
-          style: TextStyle(
-            color: Colors.white.withOpacity(0.8),
+          style: const TextStyle(
+            color: AppTheme.textSecondary,
             fontSize: 14,
           ),
         ),
@@ -205,12 +185,12 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Widget _buildSocialButton({
-    required VoidCallback? onTap,
-    required String icon,
+  Widget _buildButton({
     required String label,
     required Color bgColor,
     required Color textColor,
+    Border? border,
+    VoidCallback? onTap,
   }) {
     return GestureDetector(
       onTap: onTap,
@@ -220,21 +200,26 @@ class _LoginScreenState extends State<LoginScreen> {
         decoration: BoxDecoration(
           color: bgColor,
           borderRadius: BorderRadius.circular(14),
+          border: border,
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(icon, style: const TextStyle(fontSize: 20)),
-            const SizedBox(width: 12),
-            Text(
-              label,
-              style: TextStyle(
-                color: textColor,
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
+        child: Center(
+          child: _isLoading && bgColor == Colors.white
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Color(0xFF1F1F1F),
+                  ),
+                )
+              : Text(
+                  label,
+                  style: TextStyle(
+                    color: textColor,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
         ),
       ),
     );

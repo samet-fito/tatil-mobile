@@ -1,19 +1,15 @@
-import 'package:supabase_flutter/supabase_flutter.dart';
-import '../services/admin_service.dart';
-import 'admin_screen.dart';
-import 'route_results_screen.dart';
-import 'medical_screen.dart';
-import 'results_screen.dart';
-import 'medical_screen.dart';
-import 'results_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/search_model.dart';
 import '../theme/app_theme.dart';
-import '../widgets/continent_selector.dart';
-import '../widgets/holiday_type_selector.dart';
-import '../widgets/budget_slider.dart';
-import '../widgets/date_range_picker.dart' as drp;
+import '../services/admin_service.dart';
+import '../services/auth_service.dart';
+import 'route_results_screen.dart';
+import 'medical_screen.dart';
+import 'admin_screen.dart';
+import 'login_screen.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
@@ -22,12 +18,10 @@ class SearchScreen extends StatefulWidget {
   State<SearchScreen> createState() => _SearchScreenState();
 }
 
-class _SearchScreenState extends State<SearchScreen>
-    with SingleTickerProviderStateMixin {
+class _SearchScreenState extends State<SearchScreen> {
   late SearchModel _model;
-  late AnimationController _healthAnimController;
-  late Animation<double> _healthAnim;
   bool _isLoading = false;
+  bool _isMedicalMode = false;
 
   final List<Map<String, String>> _origins = [
     {'iata': 'IST', 'city': 'İstanbul'},
@@ -36,462 +30,688 @@ class _SearchScreenState extends State<SearchScreen>
     {'iata': 'ADB', 'city': 'İzmir'},
   ];
 
+  final List<Map<String, dynamic>> _continents = [
+    {'value': null, 'label': 'Tümü', 'emoji': '🌍'},
+    {'value': 'domestic', 'label': 'Yurtiçi', 'emoji': '🇹🇷'},
+    {'value': 'europe', 'label': 'Avrupa', 'emoji': '🏰'},
+    {'value': 'asia', 'label': 'Asya', 'emoji': '🌏'},
+    {'value': 'middleeast', 'label': 'Orta Doğu', 'emoji': '🕌'},
+    {'value': 'america', 'label': 'Amerika', 'emoji': '🗽'},
+  ];
+
+  final List<Map<String, dynamic>> _holidayTypes = [
+    {'value': null, 'label': 'Hepsi', 'emoji': '✨'},
+    {'value': 'beach', 'label': 'Deniz', 'emoji': '🏖️'},
+    {'value': 'culture', 'label': 'Kültür', 'emoji': '🏛️'},
+    {'value': 'nature', 'label': 'Doğa', 'emoji': '🌿'},
+    {'value': 'city', 'label': 'Şehir', 'emoji': '🏙️'},
+  ];
+
+  String? _selectedContinent;
+  String? _selectedHolidayType;
+
   @override
   void initState() {
     super.initState();
     initializeDateFormatting('tr_TR', null);
     _model = SearchModel();
-    _healthAnimController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 600),
-    );
-    _healthAnim = CurvedAnimation(
-      parent: _healthAnimController,
-      curve: Curves.easeInOut,
-    );
   }
 
-  @override
-  void dispose() {
-    _healthAnimController.dispose();
-    super.dispose();
-  }
-
-  void _onHolidayTypeChanged(String? type) {
-    setState(() {
-      _model = _model.copyWith(holidayType: type);
-    });
-    if (type == 'health') {
-      _healthAnimController.forward();
-    } else {
-      _healthAnimController.reverse();
+  Future<void> _search() async {
+    if (!_model.isValid) {
+      _showSnack('Lütfen bütçeyi girin (min 10.000 TL)', isError: true);
+      return;
     }
-  }
+    setState(() => _isLoading = true);
+    await Future.delayed(const Duration(milliseconds: 200));
+    setState(() => _isLoading = false);
+    if (!mounted) return;
 
-Future<void> _search() async {
-  if (!_model.isValid) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Lütfen tüm alanları doldurun.'),
-        backgroundColor: Colors.red,
-      ),
-    );
-    return;
-  }
-
-  setState(() => _isLoading = true);
-  await Future.delayed(const Duration(milliseconds: 300));
-  setState(() => _isLoading = false);
-
-  if (!mounted) return;
-
-  if (_model.holidayType == 'health') {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => MedicalScreen(
+    if (_isMedicalMode) {
+      Navigator.push(context, MaterialPageRoute(
+        builder: (ctx) => MedicalScreen(
           searchModel: _model,
           destinationIata: _model.originIata == 'IST' ? 'IST' : 'AYT',
           cityName: _model.originIata == 'IST' ? 'İstanbul' : 'Antalya',
           flightCostTL: _model.totalBudgetTL * 0.10,
         ),
-      ),
-    );
-  } else {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => RouteResultsScreen(searchModel: _model),
-      ),
-    );
+      ));
+    } else {
+      Navigator.push(context, MaterialPageRoute(
+        builder: (ctx) => RouteResultsScreen(searchModel: _model),
+      ));
+    }
   }
-}
+
+  void _showSnack(String msg, {bool isError = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(msg),
+      backgroundColor: isError ? AppTheme.accent : AppTheme.teal,
+    ));
+  }
+
+  String _formatBudget(double v) {
+    if (v >= 1000000) return '${(v / 1000000).toStringAsFixed(1)}M TL';
+    if (v >= 1000) return '${(v / 1000).toStringAsFixed(0)}K TL';
+    return '${v.toInt()} TL';
+  }
+
+  String _formatDate(DateTime d) {
+    const months = ['', 'Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz',
+        'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
+    return '${d.day} ${months[d.month]}';
+  }
 
   @override
   Widget build(BuildContext context) {
-    final isHealth = _model.holidayType == 'health';
-
     return Scaffold(
-      body: CustomScrollView(
-        slivers: [
-          // App Bar
-          SliverAppBar(
-            expandedHeight: 140,
-            floating: false,
-            pinned: true,
-            backgroundColor: isHealth ? AppTheme.health : AppTheme.primary,
-            actions: [
-  IconButton(
-    icon: const Icon(Icons.admin_panel_settings, color: Colors.white),
-    onPressed: () async {
-  // Önce Google ile giriş yapıldı mı kontrol et
-  final supabaseUser = Supabase.instance.client.auth.currentUser;
-  if (supabaseUser == null) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Admin paneli için Google ile giriş yapmalısınız.'),
-        backgroundColor: Colors.red,
-      ),
-    );
-    return;
-  }
-
-  final isAdmin = await AdminService.isAdmin();
-  if (isAdmin && mounted) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const AdminScreen(),
-      ),
-    );
-  } else {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Bu alana erişim yetkiniz yok.'),
-        backgroundColor: Colors.red,
-      ),
-    );
-  }
-},
-  ),
-],
-            flexibleSpace: FlexibleSpaceBar(
-              background: AnimatedContainer(
-                duration: const Duration(milliseconds: 400),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: isHealth
-                        ? [AppTheme.health, const Color(0xFF5B21B6)]
-                        : [AppTheme.primary, const Color(0xFF1D3461)],
-                  ),
-                ),
-                child: SafeArea(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.15),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Text(
-                                isHealth ? '🏥' : '✈️',
-                                style: const TextStyle(fontSize: 20),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            const Text(
-                              'Tatil Bulucu',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 20,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          isHealth
-                              ? 'Sağlık & Güzellik Turizmi 🌟'
-                              : 'Selam! Tatil planını yapmaya hazır mısın?',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        Text(
-                          isHealth
-                              ? 'Dünya standartlarında sağlık hizmeti'
-                              : 'Bütçeni söyle, rüya rotanı çıkaralım.',
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.75),
-                            fontSize: 13,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+      backgroundColor: AppTheme.bgPrimary,
+      body: SafeArea(
+        child: Column(
+          children: [
+            _buildTopBar(),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 24),
+                    _buildModeToggle(),
+                    const SizedBox(height: 28),
+                    _buildOriginSelector(),
+                    const SizedBox(height: 20),
+                    _buildDateSelector(),
+                    const SizedBox(height: 20),
+                    if (!_isMedicalMode) ...[
+                      _buildContinentSelector(),
+                      const SizedBox(height: 20),
+                      _buildHolidayTypeSelector(),
+                      const SizedBox(height: 20),
+                    ],
+                    _buildPassengerSelector(),
+                    const SizedBox(height: 20),
+                    _buildBudgetSlider(),
+                    const SizedBox(height: 32),
+                    _buildSearchButton(),
+                    const SizedBox(height: 20),
+                  ],
                 ),
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTopBar() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 16, 12, 0),
+      child: Row(
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                _isMedicalMode ? '🏥 Sağlık Turizmi' : '✈️ Tatil Bulucu',
+                style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.textPrimary,
+                ),
+              ),
+              Text(
+                _isMedicalMode
+                    ? 'Dünya standartlarında tedavi'
+                    : 'Bütçene göre rüya rotanı bul',
+                style: const TextStyle(fontSize: 13, color: AppTheme.textMuted),
+              ),
+            ],
           ),
-
-          // İçerik
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Kalkış Şehri
-                  _SectionLabel(label: '🛫 Nereden Gidiyorsun?'),
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    decoration: BoxDecoration(
-                      color: AppTheme.cardBg,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                          color: Colors.black.withOpacity(0.08)),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.04),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<String>(
-                        value: _model.originIata,
-                        isExpanded: true,
-                        icon: const Icon(Icons.keyboard_arrow_down),
-                        items: _origins.map((o) {
-                          return DropdownMenuItem(
-                            value: o['iata'],
-                            child: Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 8, vertical: 3),
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.accentLight,
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: Text(
-                                    o['iata']!,
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w700,
-                                      color: AppTheme.accent,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 10),
-                                Text(
-                                  o['city']!,
-                                  style: const TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        }).toList(),
-                        onChanged: (val) {
-                          if (val != null) {
-                            final city = _origins
-                                .firstWhere((o) => o['iata'] == val)['city']!;
-                            setState(() {
-                              _model = _model.copyWith(
-                                originIata: val,
-                                originCity: city,
-                              );
-                            });
-                          }
-                        },
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  // Kıta Seçimi
-                  _SectionLabel(label: '🌍 Nereye Gitmek İstiyorsun?'),
-                  const SizedBox(height: 8),
-                  ContinentSelector(
-                    selected: _model.continent,
-                    onChanged: (val) =>
-                        setState(() => _model = _model.copyWith(continent: val)),
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  // Tatil Türü
-                  _SectionLabel(label: '🎯 Nasıl Bir Tatil İstiyorsun?'),
-                  const SizedBox(height: 8),
-                  HolidayTypeSelector(
-                    selected: _model.holidayType,
-                    onChanged: _onHolidayTypeChanged,
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  // Tarih Seçici
-                  _SectionLabel(label: '📅 Ne Zaman Gidiyorsun?'),
-                  const SizedBox(height: 8),
-                  drp.DateRangePicker(
-                    departureDate: _model.departureDate,
-                    returnDate: _model.returnDate,
-                    onChanged: (dep, ret) => setState(() {
-                      _model = _model.copyWith(
-                        departureDate: dep,
-                        returnDate: ret,
-                      );
-                    }),
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  // Yolcu Sayısı
-                  _SectionLabel(label: '👥 Kaç Kişi?'),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [1, 2, 3, 4].map((n) {
-                      final isSelected = _model.passengers == n;
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 10),
-                        child: GestureDetector(
-                          onTap: () => setState(
-                              () => _model = _model.copyWith(passengers: n)),
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 200),
-                            width: 56,
-                            height: 48,
-                            decoration: BoxDecoration(
-                              color: isSelected
-                                  ? AppTheme.accent
-                                  : AppTheme.cardBg,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: isSelected
-                                    ? AppTheme.accent
-                                    : Colors.black.withOpacity(0.08),
-                              ),
-                            ),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  '$n',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w700,
-                                    color: isSelected
-                                        ? Colors.white
-                                        : AppTheme.textPrimary,
-                                  ),
-                                ),
-                                Text(
-                                  n == 1 ? 'kişi' : 'kişi',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    color: isSelected
-                                        ? Colors.white.withOpacity(0.8)
-                                        : AppTheme.textMuted,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  // Bütçe Slider
-                  _SectionLabel(label: '💰 Toplam Bütçen Ne Kadar?'),
-                  const SizedBox(height: 8),
-                  BudgetSlider(
-                    value: _model.totalBudgetTL,
-                    maxValue: _model.budgetSliderMax,
-                    isHealthMode: isHealth,
-                    onChanged: (val) => setState(
-                        () => _model = _model.copyWith(totalBudgetTL: val)),
-                  ),
-
-                  const SizedBox(height: 32),
-
-                  // Ana Buton
-                  SizedBox(
-                    width: double.infinity,
-                    height: 56,
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 400),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: isHealth
-                              ? [AppTheme.health, const Color(0xFF5B21B6)]
-                              : [AppTheme.accent, const Color(0xFF0F6E56)],
-                        ),
-                        borderRadius: BorderRadius.circular(14),
-                        boxShadow: [
-                          BoxShadow(
-                            color: (isHealth ? AppTheme.health : AppTheme.accent)
-                                .withOpacity(0.4),
-                            blurRadius: 16,
-                            offset: const Offset(0, 6),
-                          ),
-                        ],
-                      ),
-                      child: ElevatedButton(
-                        onPressed: _isLoading ? null : _search,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.transparent,
-                          shadowColor: Colors.transparent,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                        ),
-                        child: _isLoading
-                            ? const SizedBox(
-                                width: 24,
-                                height: 24,
-                                child: CircularProgressIndicator(
-                                  color: Colors.white,
-                                  strokeWidth: 2.5,
-                                ),
-                              )
-                            : Text(
-                                isHealth
-                                    ? '🏥 Sağlık Paketi Bul!'
-                                    : '🚀 Beni Şaşırt ve Paketle!',
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w700,
-                                  color: Colors.white,
-                                ),
-                              ),
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 32),
-                ],
-              ),
-            ),
+          const Spacer(),
+          IconButton(
+            icon: const Icon(Icons.admin_panel_settings_outlined,
+                color: AppTheme.textMuted, size: 22),
+            onPressed: () async {
+              final user = Supabase.instance.client.auth.currentUser;
+              if (user == null) {
+                _showSnack('Admin için Google ile giriş yapın', isError: true);
+                return;
+              }
+              final isAdmin = await AdminService.isAdmin();
+              if (isAdmin && mounted) {
+                Navigator.push(context, MaterialPageRoute(
+                  builder: (ctx) => const AdminScreen(),
+                ));
+              } else {
+                _showSnack('Erişim yetkiniz yok', isError: true);
+              }
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout_outlined,
+                color: AppTheme.textMuted, size: 22),
+            onPressed: () async {
+              await AuthService.signOut();
+              if (mounted) {
+                Navigator.pushReplacement(context, MaterialPageRoute(
+                  builder: (ctx) => const LoginScreen(),
+                ));
+              }
+            },
           ),
         ],
       ),
     );
   }
-}
 
-class _SectionLabel extends StatelessWidget {
-  final String label;
-  const _SectionLabel({required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      label,
-      style: const TextStyle(
-        fontSize: 14,
-        fontWeight: FontWeight.w600,
-        color: AppTheme.textPrimary,
+  Widget _buildModeToggle() {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: AppTheme.bgSecondary,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppTheme.border),
       ),
+      child: Row(
+        children: [
+          Expanded(child: _modeBtn('✈️ Seyahat', false)),
+          Expanded(child: _modeBtn('🏥 Sağlık', true)),
+        ],
+      ),
+    );
+  }
+
+  Widget _modeBtn(String label, bool isMedical) {
+    final isSelected = _isMedicalMode == isMedical;
+    return GestureDetector(
+      onTap: () => setState(() => _isMedicalMode = isMedical),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? (isMedical ? AppTheme.teal : AppTheme.accent)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Center(
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: isSelected ? Colors.white : AppTheme.textMuted,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOriginSelector() {
+    return _section(
+      label: 'Nereden kalkıyorsun?',
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        decoration: BoxDecoration(
+          color: AppTheme.bgSecondary,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppTheme.border),
+        ),
+        child: DropdownButtonHideUnderline(
+          child: DropdownButton<String>(
+            value: _model.originIata,
+            dropdownColor: AppTheme.bgSecondary,
+            isExpanded: true,
+            icon: const Icon(Icons.keyboard_arrow_down, color: AppTheme.textMuted),
+            items: _origins.map((o) => DropdownMenuItem(
+              value: o['iata'],
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: AppTheme.accentLight,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(o['iata']!,
+                        style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.accent)),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(o['city']!,
+                      style: const TextStyle(
+                          fontSize: 15, color: AppTheme.textPrimary)),
+                ],
+              ),
+            )).toList(),
+            onChanged: (val) {
+              if (val != null) {
+                final city = _origins.firstWhere((o) => o['iata'] == val)['city']!;
+                setState(() {
+                  _model = _model.copyWith(originIata: val, originCity: city);
+                });
+              }
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDateSelector() {
+    return _section(
+      label: 'Ne zaman gidiyorsun?',
+      child: GestureDetector(
+        onTap: () async {
+          final picked = await showDateRangePicker(
+            context: context,
+            firstDate: DateTime.now(),
+            lastDate: DateTime.now().add(const Duration(days: 365)),
+            initialDateRange: DateTimeRange(
+              start: _model.departureDate,
+              end: _model.returnDate,
+            ),
+            builder: (ctx, child) => Theme(
+              data: Theme.of(ctx).copyWith(
+                colorScheme: const ColorScheme.dark(
+                  primary: AppTheme.accent,
+                  surface: AppTheme.bgSecondary,
+                ),
+              ),
+              child: child!,
+            ),
+          );
+          if (picked != null) {
+            setState(() {
+              _model = _model.copyWith(
+                departureDate: picked.start,
+                returnDate: picked.end,
+              );
+            });
+          }
+        },
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppTheme.bgSecondary,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppTheme.border),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Gidiş',
+                        style: TextStyle(fontSize: 11, color: AppTheme.textMuted)),
+                    const SizedBox(height: 4),
+                    Text(_formatDate(_model.departureDate),
+                        style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.textPrimary)),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: AppTheme.accentLight,
+                  borderRadius: BorderRadius.circular(99),
+                ),
+                child: Text('${_model.nights} gece',
+                    style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.accent)),
+              ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    const Text('Dönüş',
+                        style: TextStyle(fontSize: 11, color: AppTheme.textMuted)),
+                    const SizedBox(height: 4),
+                    Text(_formatDate(_model.returnDate),
+                        style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.textPrimary)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildContinentSelector() {
+    return _section(
+      label: 'Nereye gitmek istiyorsun?',
+      child: SizedBox(
+        height: 42,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          itemCount: _continents.length,
+          separatorBuilder: (_, __) => const SizedBox(width: 8),
+          itemBuilder: (ctx, i) {
+            final item = _continents[i];
+            final isSelected = _selectedContinent == item['value'];
+            return GestureDetector(
+              onTap: () => setState(() {
+                _selectedContinent = item['value'];
+                _model = _model.copyWith(continent: item['value']);
+              }),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: isSelected ? AppTheme.accent : AppTheme.bgSecondary,
+                  borderRadius: BorderRadius.circular(99),
+                  border: Border.all(
+                    color: isSelected ? AppTheme.accent : AppTheme.border,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Text(item['emoji'], style: const TextStyle(fontSize: 13)),
+                    const SizedBox(width: 6),
+                    Text(item['label'],
+                        style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: isSelected ? Colors.white : AppTheme.textMuted)),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHolidayTypeSelector() {
+    return _section(
+      label: 'Nasıl bir tatil istiyorsun?',
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: _holidayTypes.map((item) {
+          final isSelected = _selectedHolidayType == item['value'];
+          return GestureDetector(
+            onTap: () => setState(() {
+              _selectedHolidayType = item['value'];
+              _model = _model.copyWith(holidayType: item['value']);
+            }),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+              decoration: BoxDecoration(
+                color: isSelected ? AppTheme.teal.withOpacity(0.2) : AppTheme.bgSecondary,
+                borderRadius: BorderRadius.circular(99),
+                border: Border.all(
+                  color: isSelected ? AppTheme.teal : AppTheme.border,
+                  width: isSelected ? 1.5 : 1,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(item['emoji'], style: const TextStyle(fontSize: 14)),
+                  const SizedBox(width: 6),
+                  Text(item['label'],
+                      style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: isSelected ? AppTheme.teal : AppTheme.textMuted)),
+                ],
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildPassengerSelector() {
+    return _section(
+      label: 'Kaç kişi?',
+      child: Row(
+        children: [1, 2, 3, 4].map((n) {
+          final isSelected = _model.passengers == n;
+          return Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: GestureDetector(
+                onTap: () => setState(() => _model = _model.copyWith(passengers: n)),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: isSelected ? AppTheme.accent : AppTheme.bgSecondary,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isSelected ? AppTheme.accent : AppTheme.border,
+                    ),
+                  ),
+                  child: Center(
+                    child: Text('$n kişi',
+                        style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: isSelected ? Colors.white : AppTheme.textMuted)),
+                  ),
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildBudgetSlider() {
+    final maxBudget = _isMedicalMode ? 500000.0 : 200000.0;
+    final budget = _model.totalBudgetTL.clamp(10000.0, maxBudget);
+
+    String segmentLabel;
+    Color segmentColor;
+    if (_isMedicalMode) {
+      segmentLabel = '🏥 Sağlık Turizmi';
+      segmentColor = AppTheme.teal;
+    } else if (budget < 25000) {
+      segmentLabel = '💚 Ekonomik';
+      segmentColor = const Color(0xFF22C55E);
+    } else if (budget < 60000) {
+      segmentLabel = '💙 Standart';
+      segmentColor = AppTheme.teal;
+    } else {
+      segmentLabel = '👑 Premium';
+      segmentColor = const Color(0xFF8B5CF6);
+    }
+
+    return _section(
+      label: 'Toplam bütçen?',
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: AppTheme.bgSecondary,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppTheme.border),
+        ),
+        child: Column(
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(segmentLabel,
+                    style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: segmentColor)),
+                GestureDetector(
+                  onTap: _showBudgetInput,
+                  child: Row(
+                    children: [
+                      Text(_formatBudget(budget),
+                          style: TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.w700,
+                              color: segmentColor)),
+                      const SizedBox(width: 4),
+                      Icon(Icons.edit_outlined,
+                          size: 14, color: segmentColor.withOpacity(0.6)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            SliderTheme(
+              data: SliderTheme.of(context).copyWith(
+                activeTrackColor: segmentColor,
+                inactiveTrackColor: segmentColor.withOpacity(0.15),
+                thumbColor: segmentColor,
+                overlayColor: segmentColor.withOpacity(0.1),
+                trackHeight: 4,
+                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10),
+              ),
+              child: Slider(
+                value: budget,
+                min: 10000,
+                max: maxBudget,
+                divisions: 100,
+                onChanged: (val) =>
+                    setState(() => _model = _model.copyWith(totalBudgetTL: val)),
+              ),
+            ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('10K TL',
+                    style: TextStyle(fontSize: 11, color: AppTheme.textMuted)),
+                Text(_formatBudget(maxBudget),
+                    style: const TextStyle(fontSize: 11, color: AppTheme.textMuted)),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showBudgetInput() {
+    final ctrl = TextEditingController(
+        text: _model.totalBudgetTL.toInt().toString());
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.bgSecondary,
+        title: const Text('Bütçe Gir',
+            style: TextStyle(color: AppTheme.textPrimary)),
+        content: TextField(
+          controller: ctrl,
+          keyboardType: TextInputType.number,
+          autofocus: true,
+          style: const TextStyle(color: AppTheme.textPrimary),
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          decoration: const InputDecoration(
+            suffix: Text('TL', style: TextStyle(color: AppTheme.textMuted)),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('İptal',
+                style: TextStyle(color: AppTheme.textMuted)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final val = double.tryParse(ctrl.text);
+              if (val != null && val >= 10000) {
+                setState(() => _model = _model.copyWith(totalBudgetTL: val));
+              }
+              Navigator.pop(ctx);
+            },
+            child: const Text('Tamam'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSearchButton() {
+    return SizedBox(
+      width: double.infinity,
+      height: 58,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: _isMedicalMode
+                ? [AppTheme.teal, const Color(0xFF0096B7)]
+                : [AppTheme.accent, const Color(0xFFFF3B41)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: (_isMedicalMode ? AppTheme.teal : AppTheme.accent)
+                  .withOpacity(0.35),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: ElevatedButton(
+          onPressed: _isLoading ? null : _search,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.transparent,
+            shadowColor: Colors.transparent,
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16)),
+          ),
+          child: _isLoading
+              ? const SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(
+                      color: Colors.white, strokeWidth: 2.5))
+              : Text(
+                  _isMedicalMode
+                      ? '🏥 Sağlık Paketi Bul'
+                      : '🚀 Bütçeme Uygun Rotaları Bul',
+                  style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white),
+                ),
+        ),
+      ),
+    );
+  }
+
+  Widget _section({required String label, required Widget child}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label,
+            style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: AppTheme.textMuted)),
+        const SizedBox(height: 8),
+        child,
+      ],
     );
   }
 }

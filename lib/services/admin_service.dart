@@ -161,4 +161,111 @@ static Future<bool> addHotel(Map<String, dynamic> hotel) async {
       };
     }
   }
+// ============================================================
+  // KLİNİK YÖNETİMİ
+  // ============================================================
+  static Future<List<Map<String, dynamic>>> getClinics() async {
+    try {
+      final result = await _supabase
+          .from('clinics')
+          .select('*')
+          .order('created_at', ascending: false);
+      return List<Map<String, dynamic>>.from(result);
+    } catch (e) {
+      debugPrint('Get clinics error: $e');
+      return [];
+    }
+  }
+
+  static Future<bool> addClinic(Map<String, dynamic> clinic) async {
+    try {
+      await _supabase.from('clinics').insert(clinic);
+      return true;
+    } catch (e) {
+      debugPrint('Add clinic error: $e');
+      return false;
+    }
+  }
+
+  static Future<bool> updateClinic(
+      String id, Map<String, dynamic> data) async {
+    try {
+      await _supabase.from('clinics').update(data).eq('id', id);
+      return true;
+    } catch (e) {
+      debugPrint('Update clinic error: $e');
+      return false;
+    }
+  }
+
+  static Future<bool> deleteClinic(String id) async {
+    try {
+      await _supabase
+          .from('clinics')
+          .update({'is_active': false})
+          .eq('id', id);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // ============================================================
+  // TEDAVİ YÖNETİMİ
+  // ============================================================
+static Future<List<Map<String, dynamic>>> getTreatments(
+    {String? clinicId}) async {
+  try {
+    if (clinicId != null) {
+      final result = await _supabase
+          .from('treatments')
+          .select('*, clinics(name, city_name)')
+          .eq('clinic_id', clinicId)
+          .order('created_at', ascending: false);
+      return List<Map<String, dynamic>>.from(result);
+    } else {
+      final result = await _supabase
+          .from('treatments')
+          .select('*, clinics(name, city_name)')
+          .order('created_at', ascending: false);
+      return List<Map<String, dynamic>>.from(result);
+    }
+  } catch (e) {
+    debugPrint('Get treatments error: $e');
+    return [];
+  }
+}
+
+  static Future<bool> addTreatment(Map<String, dynamic> treatment) async {
+    try {
+      await _supabase.from('treatments').insert(treatment);
+      return true;
+    } catch (e) {
+      debugPrint('Add treatment error: $e');
+      return false;
+    }
+  }
+
+  static Future<bool> updateTreatment(
+      String id, Map<String, dynamic> data) async {
+    try {
+      await _supabase.from('treatments').update(data).eq('id', id);
+      return true;
+    } catch (e) {
+      debugPrint('Update treatment error: $e');
+      return false;
+    }
+  }
+
+  static Future<bool> deleteTreatment(String id) async {
+    try {
+      await _supabase
+          .from('treatments')
+          .update({'is_active': false})
+          .eq('id', id);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
 }

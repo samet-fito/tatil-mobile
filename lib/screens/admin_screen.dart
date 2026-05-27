@@ -1,3 +1,4 @@
+import 'admin_clinics_screen.dart';
 import 'package:flutter/material.dart';
 import '../services/admin_service.dart';
 import '../theme/app_theme.dart';
@@ -86,6 +87,19 @@ class _AdminScreenState extends State<AdminScreen> {
                     ).then((_) => _loadStats()),
                   ),
                   const SizedBox(height: 10),
+                  const SizedBox(height: 10),
+_buildMenuCard(
+  icon: Icons.local_hospital,
+  title: 'Klinik Yönetimi',
+  subtitle: 'Klinik ve tedavi paketleri',
+  color: AppTheme.health,
+  onTap: () => Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (ctx) => const AdminClinicsScreen(),
+    ),
+  ).then((_) => _loadStats()),
+),
                   _buildMenuCard(
                     icon: Icons.directions_car,
                     title: 'Transfer Yönetimi',
