@@ -64,14 +64,14 @@ class _CheckoutAuthSheetState extends State<CheckoutAuthSheet> {
   }
 
   Future<void> _signInWithApple() async {
-  ScaffoldMessenger.of(context).showSnackBar(
-    const SnackBar(
-      content: Text('🍎 Apple girişi yakında aktif olacak!'),
-      backgroundColor: Colors.black,
-      duration: Duration(seconds: 2),
-    ),
-  );
-}
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Apple girişi yakında aktif olacak.'),
+        backgroundColor: Colors.black,
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
 
   void _continueWithoutLogin() {
     Navigator.pop(context);
@@ -91,181 +91,170 @@ class _CheckoutAuthSheetState extends State<CheckoutAuthSheet> {
   Widget build(BuildContext context) {
     return Container(
       decoration: const BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.bgSecondary,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       padding: EdgeInsets.fromLTRB(
-        24, 16, 24,
-        MediaQuery.of(context).padding.bottom + 24,
+        32, 24, 32,
+        MediaQuery.of(context).padding.bottom + 32,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Handle
-          Container(
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: Colors.grey.shade300,
-              borderRadius: BorderRadius.circular(2),
+          Center(
+            child: Container(
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppTheme.border,
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 28),
 
           // Başlık
           const Text(
-            '✈️ Neredeyse Hazırsın!',
+            'Devam etmek için\ngiriş yapın',
             style: TextStyle(
-              fontSize: 20,
+              fontSize: 26,
               fontWeight: FontWeight.w700,
               color: AppTheme.textPrimary,
+              height: 1.2,
+              letterSpacing: -0.5,
             ),
           ),
           const SizedBox(height: 8),
           Text(
-            '${widget.cityName} · ${_formatPrice(widget.totalPrice)}',
+            '${widget.cityName}  ·  ${_formatPrice(widget.totalPrice)}',
             style: const TextStyle(
               fontSize: 14,
               color: AppTheme.textMuted,
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 28),
 
-          // Giriş avantajları
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppTheme.accentLight,
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Column(
-              children: [
-                _benefitRow('📋', 'Rezervasyonların otomatik kaydedilir'),
-                const SizedBox(height: 8),
-                _benefitRow('🔔', 'Fiyat düşünce bildirim alırsın'),
-                const SizedBox(height: 8),
-                _benefitRow('⭐', 'Favori rotalarını takip edebilirsin'),
-              ],
-            ),
-          ),
-          const SizedBox(height: 20),
+          // Avantajlar
+          _benefit('Rezervasyonlarınız otomatik kaydedilir'),
+          const SizedBox(height: 8),
+          _benefit('Fiyat değişikliklerinde bildirim alırsınız'),
+          const SizedBox(height: 8),
+          _benefit('Geçmiş aramalarınıza erişebilirsiniz'),
+
+          const SizedBox(height: 28),
 
           // Google butonu
-          _socialButton(
+          _buildButton(
+            label: 'Google ile Giriş Yap',
+            bgColor: Colors.white,
+            textColor: const Color(0xFF1F1F1F),
             onTap: _isLoading ? null : _signInWithGoogle,
-            icon: '🔵',
-            label: 'Google ile Hemen Giriş Yap',
-            bgColor: AppTheme.primary,
-            textColor: Colors.white,
+            isLoading: _isLoading,
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
 
           // Apple butonu
-          _socialButton(
-            onTap: _isLoading ? null : _signInWithApple,
-            icon: '🍎',
-            label: 'Apple ile Hemen Giriş Yap',
+          _buildButton(
+            label: 'Apple ile Giriş Yap',
             bgColor: Colors.black,
             textColor: Colors.white,
+            onTap: _isLoading ? null : _signInWithApple,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
 
           // Ayırıcı
           Row(
             children: [
-              const Expanded(child: Divider()),
+              Expanded(child: Divider(color: AppTheme.border)),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Text(
                   'veya',
                   style: TextStyle(
-                    color: Colors.grey.shade400,
+                    color: AppTheme.textMuted.withOpacity(0.6),
                     fontSize: 13,
                   ),
                 ),
               ),
-              const Expanded(child: Divider()),
+              Expanded(child: Divider(color: AppTheme.border)),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
 
           // Giriş yapmadan devam
-          GestureDetector(
+          _buildButton(
+            label: 'Giriş Yapmadan Devam Et',
+            bgColor: Colors.transparent,
+            textColor: AppTheme.textSecondary,
+            border: Border.all(color: AppTheme.border),
             onTap: _continueWithoutLogin,
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              decoration: BoxDecoration(
-                color: AppTheme.background,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                  color: Colors.black.withOpacity(0.08),
-                ),
-              ),
-              child: const Center(
-                child: Text(
-                  '👤 Giriş Yapmadan Devam Et',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: AppTheme.textPrimary,
-                  ),
-                ),
-              ),
-            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _benefitRow(String emoji, String text) {
+  Widget _benefit(String text) {
     return Row(
       children: [
-        Text(emoji, style: const TextStyle(fontSize: 16)),
-        const SizedBox(width: 10),
+        Container(
+          width: 4,
+          height: 4,
+          decoration: const BoxDecoration(
+            color: AppTheme.accent,
+            shape: BoxShape.circle,
+          ),
+        ),
+        const SizedBox(width: 12),
         Text(
           text,
           style: const TextStyle(
-            fontSize: 13,
-            color: AppTheme.accent,
-            fontWeight: FontWeight.w500,
+            color: AppTheme.textSecondary,
+            fontSize: 14,
           ),
         ),
       ],
     );
   }
 
-  Widget _socialButton({
-    required VoidCallback? onTap,
-    required String icon,
+  Widget _buildButton({
     required String label,
     required Color bgColor,
     required Color textColor,
+    Border? border,
+    VoidCallback? onTap,
+    bool isLoading = false,
   }) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 14),
+        padding: const EdgeInsets.symmetric(vertical: 16),
         decoration: BoxDecoration(
           color: bgColor,
           borderRadius: BorderRadius.circular(14),
+          border: border,
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(icon, style: const TextStyle(fontSize: 18)),
-            const SizedBox(width: 10),
-            Text(
-              label,
-              style: TextStyle(
-                color: textColor,
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
+        child: Center(
+          child: isLoading
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Color(0xFF1F1F1F),
+                  ),
+                )
+              : Text(
+                  label,
+                  style: TextStyle(
+                    color: textColor,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
         ),
       ),
     );
