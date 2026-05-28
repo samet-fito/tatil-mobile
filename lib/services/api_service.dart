@@ -1,3 +1,4 @@
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/route_result_model.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
@@ -533,5 +534,25 @@ class ApiService {
         'alternative_suggestion': 'Konaklama süresini ${nights - 2} geceye indirirsen bütçene uygun hale gelir.',
       }),
     ];
+  }
+// ============================================================
+  // FLAŞ SAĞLIK PAKETLERİ
+  // ============================================================
+  static Future<List<Map<String, dynamic>>> getFlashDeals() async {
+    try {
+      final supabase = Supabase.instance.client;
+      final result = await supabase
+          .from('treatments')
+          .select('*, clinics(name, city_name, rating)')
+          .eq('is_flash_deal', true)
+          .eq('is_active', true)
+          .gt('flash_available_slots', 0)
+          .order('flash_discount_percent', ascending: false)
+          .limit(5);
+
+      return List<Map<String, dynamic>>.from(result);
+    } catch (e) {
+      return [];
+    }
   }
 }

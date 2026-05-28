@@ -35,8 +35,7 @@ class _AdminTreatmentsScreenState extends State<AdminTreatmentsScreen> {
 
   Future<void> _loadTreatments() async {
     setState(() => _isLoading = true);
-    final treatments = await AdminService.getTreatments(
-        clinicId: widget.clinicId);
+    final treatments = await AdminService.getTreatments(clinicId: widget.clinicId);
     if (mounted) {
       setState(() {
         _treatments = treatments;
@@ -57,8 +56,7 @@ class _AdminTreatmentsScreenState extends State<AdminTreatmentsScreen> {
         onSave: (data) async {
           bool success;
           if (treatment != null) {
-            success =
-                await AdminService.updateTreatment(treatment['id'], data);
+            success = await AdminService.updateTreatment(treatment['id'], data);
           } else {
             success = await AdminService.addTreatment(data);
           }
@@ -67,10 +65,8 @@ class _AdminTreatmentsScreenState extends State<AdminTreatmentsScreen> {
             _loadTreatments();
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text(treatment != null
-                    ? '✅ Tedavi güncellendi!'
-                    : '✅ Tedavi eklendi!'),
-                backgroundColor: AppTheme.health,
+                content: Text(treatment != null ? '✅ Güncellendi!' : '✅ Eklendi!'),
+                backgroundColor: AppTheme.teal,
               ),
             );
           }
@@ -83,17 +79,14 @@ class _AdminTreatmentsScreenState extends State<AdminTreatmentsScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Tedaviyi Kaldır'),
-        content: Text('$name tedavisi pasif yapılacak. Emin misin?'),
+        backgroundColor: AppTheme.bgSecondary,
+        title: const Text('Tedaviyi Kaldır', style: TextStyle(color: AppTheme.textPrimary)),
+        content: Text('$name pasif yapılacak.', style: const TextStyle(color: AppTheme.textSecondary)),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('İptal'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('İptal')),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Kaldır',
-                style: TextStyle(color: Colors.red)),
+            child: const Text('Kaldır', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -107,9 +100,9 @@ class _AdminTreatmentsScreenState extends State<AdminTreatmentsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: AppTheme.bgPrimary,
       appBar: AppBar(
-        backgroundColor: AppTheme.health,
+        backgroundColor: AppTheme.teal,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.pop(context),
@@ -117,19 +110,10 @@ class _AdminTreatmentsScreenState extends State<AdminTreatmentsScreen> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              '⚕️ Tedavi Paketleri',
-              style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700),
-            ),
-            Text(
-              widget.clinicName,
-              style: TextStyle(
-                  color: Colors.white.withOpacity(0.75),
-                  fontSize: 12),
-            ),
+            const Text('Tedavi Paketleri',
+                style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w700)),
+            Text(widget.clinicName,
+                style: TextStyle(color: Colors.white.withOpacity(0.75), fontSize: 12)),
           ],
         ),
         actions: [
@@ -141,30 +125,26 @@ class _AdminTreatmentsScreenState extends State<AdminTreatmentsScreen> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showTreatmentForm(),
-        backgroundColor: AppTheme.health,
+        backgroundColor: AppTheme.teal,
         icon: const Icon(Icons.add, color: Colors.white),
-        label: const Text('Tedavi Ekle',
-            style: TextStyle(color: Colors.white)),
+        label: const Text('Tedavi Ekle', style: TextStyle(color: Colors.white)),
       ),
       body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(color: AppTheme.health))
+          ? const Center(child: CircularProgressIndicator(color: AppTheme.teal))
           : _treatments.isEmpty
               ? Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Text('⚕️',
-                          style: TextStyle(fontSize: 48)),
+                      const Icon(Icons.medical_services_outlined,
+                          size: 48, color: AppTheme.textMuted),
                       const SizedBox(height: 12),
-                      const Text('Henüz tedavi paketi yok.',
-                          style:
-                              TextStyle(color: AppTheme.textMuted)),
+                      const Text('Henüz tedavi yok.',
+                          style: TextStyle(color: AppTheme.textMuted)),
                       const SizedBox(height: 16),
                       ElevatedButton(
                         onPressed: () => _showTreatmentForm(),
-                        style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.health),
+                        style: ElevatedButton.styleFrom(backgroundColor: AppTheme.teal),
                         child: const Text('İlk Tedaviyi Ekle',
                             style: TextStyle(color: Colors.white)),
                       ),
@@ -174,25 +154,25 @@ class _AdminTreatmentsScreenState extends State<AdminTreatmentsScreen> {
               : ListView.builder(
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
                   itemCount: _treatments.length,
-                  itemBuilder: (ctx, i) =>
-                      _buildTreatmentCard(_treatments[i]),
+                  itemBuilder: (ctx, i) => _buildCard(_treatments[i]),
                 ),
     );
   }
 
-  Widget _buildTreatmentCard(Map<String, dynamic> t) {
-    final isActive = t['is_active'] ?? true;
+  Widget _buildCard(Map<String, dynamic> t) {
     final includes = t['package_includes'] as Map? ?? {};
+    final isFlash = t['is_flash_deal'] ?? false;
+    final discount = t['flash_discount_percent'] ?? 0;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: AppTheme.cardBg,
+        color: AppTheme.bgSecondary,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isActive
-              ? Colors.black.withOpacity(0.06)
-              : Colors.red.withOpacity(0.3),
+          color: isFlash
+              ? AppTheme.accent.withOpacity(0.4)
+              : AppTheme.border,
         ),
       ),
       child: Padding(
@@ -206,19 +186,33 @@ class _AdminTreatmentsScreenState extends State<AdminTreatmentsScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      if (isFlash)
+                        Container(
+                          margin: const EdgeInsets.only(bottom: 4),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppTheme.accent,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            'SON DAKİKA -%$discount',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
                       Text(
-                        t['treatment_name_tr'] ??
-                            t['treatment_name'] ??
-                            '--',
+                        t['treatment_name_tr'] ?? t['treatment_name'] ?? '--',
                         style: const TextStyle(
                             fontSize: 14,
-                            fontWeight: FontWeight.w700),
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.textPrimary),
                       ),
                       Text(
                         t['category'] ?? '--',
-                        style: const TextStyle(
-                            fontSize: 12,
-                            color: AppTheme.textMuted),
+                        style: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
                       ),
                     ],
                   ),
@@ -228,18 +222,21 @@ class _AdminTreatmentsScreenState extends State<AdminTreatmentsScreen> {
                   children: [
                     Text(
                       '€${t['price_eur']?.toInt() ?? 0}',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w700,
-                        color: AppTheme.health,
+                        color: isFlash ? AppTheme.accent : AppTheme.teal,
+                        decoration: isFlash ? TextDecoration.lineThrough : null,
                       ),
                     ),
-                    if (t['price_tl'] != null)
+                    if (isFlash)
                       Text(
-                        '${t['price_tl']?.toInt() ?? 0} TL',
+                        '€${((t['price_eur'] ?? 0) * (1 - discount / 100)).toInt()}',
                         style: const TextStyle(
-                            fontSize: 11,
-                            color: AppTheme.textMuted),
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.accent,
+                        ),
                       ),
                   ],
                 ),
@@ -250,16 +247,11 @@ class _AdminTreatmentsScreenState extends State<AdminTreatmentsScreen> {
               spacing: 6,
               runSpacing: 6,
               children: [
-                _chip('📅',
-                    '${t['duration_days']} gün tedavi'),
-                _chip('🛏️',
-                    '${t['recovery_days']} gün iyileşme'),
-                _chip('✅',
-                    '%${t['success_rate']?.toInt() ?? 0} başarı'),
-                if (includes['hotel'] == true)
-                  _chip('🏨', 'Otel Dahil'),
-                if (includes['transfer'] == true)
-                  _chip('🚗', 'Transfer Dahil'),
+                _chip('${t['duration_days']} gün tedavi'),
+                _chip('${t['recovery_days']} gün iyileşme'),
+                _chip('%${t['success_rate']?.toInt() ?? 0} başarı'),
+                if (includes['hotel'] == true) _chip('Otel Dahil'),
+                if (includes['transfer'] == true) _chip('Transfer Dahil'),
               ],
             ),
             const SizedBox(height: 10),
@@ -270,19 +262,14 @@ class _AdminTreatmentsScreenState extends State<AdminTreatmentsScreen> {
                   onPressed: () => _showTreatmentForm(treatment: t),
                   icon: const Icon(Icons.edit, size: 16),
                   label: const Text('Düzenle'),
-                  style: TextButton.styleFrom(
-                      foregroundColor: AppTheme.accent),
+                  style: TextButton.styleFrom(foregroundColor: AppTheme.teal),
                 ),
                 TextButton.icon(
                   onPressed: () => _deleteTreatment(
-                      t['id'],
-                      t['treatment_name_tr'] ??
-                          t['treatment_name'] ??
-                          ''),
+                      t['id'], t['treatment_name_tr'] ?? ''),
                   icon: const Icon(Icons.delete_outline, size: 16),
                   label: const Text('Kaldır'),
-                  style: TextButton.styleFrom(
-                      foregroundColor: Colors.red),
+                  style: TextButton.styleFrom(foregroundColor: Colors.red),
                 ),
               ],
             ),
@@ -292,23 +279,15 @@ class _AdminTreatmentsScreenState extends State<AdminTreatmentsScreen> {
     );
   }
 
-  Widget _chip(String emoji, String label) {
+  Widget _chip(String label) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: AppTheme.healthLight,
+        color: AppTheme.tealLight,
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(emoji, style: const TextStyle(fontSize: 11)),
-          const SizedBox(width: 4),
-          Text(label,
-              style: const TextStyle(
-                  fontSize: 11, color: AppTheme.accent)),
-        ],
-      ),
+      child: Text(label,
+          style: const TextStyle(fontSize: 11, color: AppTheme.teal)),
     );
   }
 }
@@ -348,33 +327,31 @@ class _TreatmentFormSheetState extends State<TreatmentFormSheet> {
   bool _hotelIncluded = false;
   bool _transferIncluded = true;
   bool _medicationIncluded = true;
+  bool _isFlashDeal = false;
+  int _flashDiscountPercent = 20;
+  int _flashSlots = 3;
 
   @override
   void initState() {
     super.initState();
     final t = widget.treatment;
     _nameCtrl = TextEditingController(text: t?['treatment_name'] ?? '');
-    _nameTrCtrl =
-        TextEditingController(text: t?['treatment_name_tr'] ?? '');
-    _priceEurCtrl =
-        TextEditingController(text: t?['price_eur']?.toString() ?? '');
-    _priceTlCtrl =
-        TextEditingController(text: t?['price_tl']?.toString() ?? '');
-    _durationCtrl =
-        TextEditingController(text: t?['duration_days']?.toString() ?? '1');
-    _recoveryCtrl = TextEditingController(
-        text: t?['recovery_days']?.toString() ?? '0');
-    _successCtrl = TextEditingController(
-        text: t?['success_rate']?.toString() ?? '95.0');
+    _nameTrCtrl = TextEditingController(text: t?['treatment_name_tr'] ?? '');
+    _priceEurCtrl = TextEditingController(text: t?['price_eur']?.toString() ?? '');
+    _priceTlCtrl = TextEditingController(text: t?['price_tl']?.toString() ?? '');
+    _durationCtrl = TextEditingController(text: t?['duration_days']?.toString() ?? '1');
+    _recoveryCtrl = TextEditingController(text: t?['recovery_days']?.toString() ?? '0');
+    _successCtrl = TextEditingController(text: t?['success_rate']?.toString() ?? '95.0');
     _commissionCtrl = TextEditingController(
-        text: t != null
-            ? (t['commission_rate'] * 100).toInt().toString()
-            : '20');
+        text: t != null ? (t['commission_rate'] * 100).toInt().toString() : '20');
     _category = t?['category'] ?? widget.categories.first;
     final includes = t?['package_includes'] as Map? ?? {};
     _hotelIncluded = includes['hotel'] == true;
     _transferIncluded = includes['transfer'] != false;
     _medicationIncluded = includes['medication'] != false;
+    _isFlashDeal = t?['is_flash_deal'] ?? false;
+    _flashDiscountPercent = t?['flash_discount_percent'] ?? 20;
+    _flashSlots = (t?['flash_available_slots'] ?? 3).clamp(1, 10);
   }
 
   @override
@@ -402,13 +379,18 @@ class _TreatmentFormSheetState extends State<TreatmentFormSheet> {
       'duration_days': int.tryParse(_durationCtrl.text) ?? 1,
       'recovery_days': int.tryParse(_recoveryCtrl.text) ?? 0,
       'success_rate': double.tryParse(_successCtrl.text) ?? 95.0,
-      'commission_rate':
-          (int.tryParse(_commissionCtrl.text) ?? 20) / 100,
+      'commission_rate': (int.tryParse(_commissionCtrl.text) ?? 20) / 100,
       'package_includes': {
         'hotel': _hotelIncluded,
         'transfer': _transferIncluded,
         'medication': _medicationIncluded,
       },
+      'is_flash_deal': _isFlashDeal,
+      'flash_discount_percent': _flashDiscountPercent,
+      'flash_available_slots': _flashSlots,
+      'flash_valid_until': _isFlashDeal
+          ? DateTime.now().add(const Duration(days: 7)).toIso8601String()
+          : null,
       'is_active': true,
     });
   }
@@ -417,7 +399,7 @@ class _TreatmentFormSheetState extends State<TreatmentFormSheet> {
   Widget build(BuildContext context) {
     return Container(
       decoration: const BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.bgSecondary,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       padding: EdgeInsets.fromLTRB(
@@ -426,131 +408,134 @@ class _TreatmentFormSheetState extends State<TreatmentFormSheet> {
         key: _formKey,
         child: SingleChildScrollView(
           child: Column(
-            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Center(
                 child: Container(
-                  width: 40,
-                  height: 4,
+                  width: 40, height: 4,
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
+                    color: AppTheme.border,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
               ),
               const SizedBox(height: 16),
               Text(
-                widget.treatment != null
-                    ? '✏️ Tedaviyi Düzenle'
-                    : '➕ Yeni Tedavi Ekle',
+                widget.treatment != null ? 'Tedaviyi Düzenle' : 'Yeni Tedavi Ekle',
                 style: const TextStyle(
-                    fontSize: 18, fontWeight: FontWeight.w700),
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.textPrimary),
               ),
               const SizedBox(height: 16),
-              _field(_nameCtrl, 'Tedavi Adı (EN)',
-                  'FUE Hair Transplant'),
+              _field(_nameCtrl, 'Tedavi Adı (EN)', 'FUE Hair Transplant'),
               const SizedBox(height: 10),
-              _field(_nameTrCtrl, 'Tedavi Adı (TR)',
-                  'FUE Saç Ekimi'),
+              _field(_nameTrCtrl, 'Tedavi Adı (TR)', 'FUE Saç Ekimi'),
               const SizedBox(height: 10),
-              const Text('Kategori',
-                  style: TextStyle(
-                      fontSize: 12, color: AppTheme.textMuted)),
+              _label('Kategori'),
               const SizedBox(height: 6),
               DropdownButtonFormField<String>(
                 value: _category,
+                dropdownColor: AppTheme.bgSecondary,
+                style: const TextStyle(color: AppTheme.textPrimary),
                 decoration: InputDecoration(
                   filled: true,
-                  fillColor: AppTheme.background,
+                  fillColor: AppTheme.bgTertiary,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide(
-                        color: Colors.black.withOpacity(0.08)),
+                    borderSide: const BorderSide(color: AppTheme.border),
                   ),
-                  contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 10),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 ),
                 items: widget.categories
-                    .map((c) => DropdownMenuItem(
-                        value: c, child: Text(c)))
+                    .map((c) => DropdownMenuItem(value: c, child: Text(c)))
                     .toList(),
-                onChanged: (v) =>
-                    setState(() => _category = v ?? _category),
+                onChanged: (v) => setState(() => _category = v ?? _category),
               ),
               const SizedBox(height: 10),
               Row(
                 children: [
-                  Expanded(
-                      child: _field(
-                          _priceEurCtrl, 'Fiyat (€)', '1250',
-                          isNumber: true)),
+                  Expanded(child: _field(_priceEurCtrl, 'Fiyat (€)', '1250', isNumber: true)),
                   const SizedBox(width: 10),
-                  Expanded(
-                      child: _field(
-                          _priceTlCtrl, 'Fiyat (TL)', '45000',
-                          isNumber: true)),
+                  Expanded(child: _field(_priceTlCtrl, 'Fiyat (TL)', '45000', isNumber: true)),
                 ],
               ),
               const SizedBox(height: 10),
               Row(
                 children: [
-                  Expanded(
-                      child: _field(
-                          _durationCtrl, 'Tedavi (gün)', '2',
-                          isNumber: true)),
+                  Expanded(child: _field(_durationCtrl, 'Tedavi (gün)', '2', isNumber: true)),
                   const SizedBox(width: 10),
-                  Expanded(
-                      child: _field(
-                          _recoveryCtrl, 'İyileşme (gün)', '3',
-                          isNumber: true)),
+                  Expanded(child: _field(_recoveryCtrl, 'İyileşme (gün)', '3', isNumber: true)),
                 ],
               ),
               const SizedBox(height: 10),
               Row(
                 children: [
-                  Expanded(
-                      child: _field(
-                          _successCtrl, 'Başarı Oranı (%)', '97.5',
-                          isNumber: true)),
+                  Expanded(child: _field(_successCtrl, 'Başarı (%)', '97.5', isNumber: true)),
                   const SizedBox(width: 10),
-                  Expanded(
-                      child: _field(
-                          _commissionCtrl, 'Komisyon (%)', '20',
-                          isNumber: true)),
+                  Expanded(child: _field(_commissionCtrl, 'Komisyon (%)', '20', isNumber: true)),
                 ],
               ),
-              const SizedBox(height: 12),
-              const Text('Pakete Dahil',
-                  style: TextStyle(
-                      fontSize: 13, fontWeight: FontWeight.w600)),
-              _switchRow('🏨 Otel', _hotelIncluded,
-                  (v) => setState(() => _hotelIncluded = v)),
-              _switchRow('🚗 Transfer', _transferIncluded,
-                  (v) => setState(() => _transferIncluded = v)),
-              _switchRow('💊 İlaçlar', _medicationIncluded,
-                  (v) => setState(() => _medicationIncluded = v)),
               const SizedBox(height: 16),
+
+              // Dahil olanlar
+              _label('Pakete Dahil'),
+              _switchRow('Otel', _hotelIncluded, (v) => setState(() => _hotelIncluded = v)),
+              _switchRow('Transfer', _transferIncluded, (v) => setState(() => _transferIncluded = v)),
+              _switchRow('İlaçlar', _medicationIncluded, (v) => setState(() => _medicationIncluded = v)),
+
+              const SizedBox(height: 16),
+              Divider(color: AppTheme.border),
+              const SizedBox(height: 12),
+
+              // Flash deal
+              _label('Son Dakika Fırsatı'),
+              _switchRow('Flaş İndirim Aktif', _isFlashDeal,
+                  (v) => setState(() => _isFlashDeal = v)),
+
+              if (_isFlashDeal) ...[
+                const SizedBox(height: 10),
+                _label('İndirim Oranı: %$_flashDiscountPercent'),
+                Slider(
+                  value: _flashDiscountPercent.toDouble(),
+                  min: 5,
+                  max: 50,
+                  divisions: 9,
+                  label: '%$_flashDiscountPercent',
+                  activeColor: AppTheme.accent,
+                  onChanged: (v) => setState(() => _flashDiscountPercent = v.toInt()),
+                ),
+                _label('Kontenjan: $_flashSlots kişi'),
+                Slider(
+                  value: _flashSlots.toDouble(),
+                  min: 1,
+                  max: 10,
+                  divisions: 9,
+                  label: '$_flashSlots kişi',
+                  activeColor: AppTheme.accent,
+                  onChanged: (v) => setState(() => _flashSlots = v.toInt()),
+                ),
+              ],
+
+              const SizedBox(height: 20),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: _save,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.health,
-                    padding:
-                        const EdgeInsets.symmetric(vertical: 14),
+                    backgroundColor: AppTheme.teal,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12)),
                   ),
                   child: Text(
                     widget.treatment != null ? 'Güncelle' : 'Ekle',
                     style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700),
+                        color: Colors.white, fontSize: 15, fontWeight: FontWeight.w700),
                   ),
                 ),
               ),
+              const SizedBox(height: 16),
             ],
           ),
         ),
@@ -558,16 +543,28 @@ class _TreatmentFormSheetState extends State<TreatmentFormSheet> {
     );
   }
 
-  Widget _switchRow(
-      String label, bool value, Function(bool) onChanged) {
+  Widget _label(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Text(text,
+          style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: AppTheme.textMuted)),
+    );
+  }
+
+  Widget _switchRow(String label, bool value, Function(bool) onChanged) {
     return Row(
       children: [
-        Text(label, style: const TextStyle(fontSize: 13)),
-        const Spacer(),
+        Expanded(
+          child: Text(label,
+              style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary)),
+        ),
         Switch(
           value: value,
           onChanged: onChanged,
-          activeColor: AppTheme.health,
+          activeColor: AppTheme.teal,
         ),
       ],
     );
@@ -579,35 +576,31 @@ class _TreatmentFormSheetState extends State<TreatmentFormSheet> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label,
-            style: const TextStyle(
-                fontSize: 12, color: AppTheme.textMuted)),
+            style: const TextStyle(fontSize: 12, color: AppTheme.textMuted)),
         const SizedBox(height: 4),
         TextFormField(
           controller: ctrl,
-          keyboardType:
-              isNumber ? TextInputType.number : TextInputType.text,
+          keyboardType: isNumber ? TextInputType.number : TextInputType.text,
+          style: const TextStyle(color: AppTheme.textPrimary),
           validator: (v) => v!.isEmpty ? '$label zorunlu' : null,
           decoration: InputDecoration(
             hintText: hint,
+            hintStyle: const TextStyle(color: AppTheme.textMuted),
             filled: true,
-            fillColor: AppTheme.background,
+            fillColor: AppTheme.bgTertiary,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide:
-                  BorderSide(color: Colors.black.withOpacity(0.08)),
+              borderSide: const BorderSide(color: AppTheme.border),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide:
-                  BorderSide(color: Colors.black.withOpacity(0.08)),
+              borderSide: const BorderSide(color: AppTheme.border),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide:
-                  const BorderSide(color: AppTheme.health),
+              borderSide: const BorderSide(color: AppTheme.teal),
             ),
-            contentPadding: const EdgeInsets.symmetric(
-                horizontal: 12, vertical: 10),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           ),
         ),
       ],

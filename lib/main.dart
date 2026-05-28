@@ -1,3 +1,4 @@
+import 'screens/main_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'services/auth_service.dart';
 import 'package:flutter/material.dart';
@@ -65,20 +66,21 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
   @override
   Widget build(BuildContext context) {
-    if (!_initialized) {
-      return const Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(),
-        ),
-      );
-    }
-
-    final session = Supabase.instance.client.auth.currentSession;
-    final isGuest = AuthService.isGuest;
-
-    if (session != null || isGuest) {
-      return const SearchScreen();
-    }
-    return const LoginScreen();
+  if (!_initialized) {
+    return const Scaffold(
+      backgroundColor: AppTheme.bgPrimary,
+      body: Center(
+        child: CircularProgressIndicator(color: AppTheme.accent),
+      ),
+    );
   }
+
+  final session = Supabase.instance.client.auth.currentSession;
+  final isGuest = AuthService.isGuest;
+
+  if (session != null || isGuest) {
+    return const MainScreen();
+  }
+  return const LoginScreen();
+}
 }

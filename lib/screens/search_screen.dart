@@ -1,3 +1,4 @@
+import '../services/api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -22,6 +23,7 @@ class _SearchScreenState extends State<SearchScreen> {
   late SearchModel _model;
   bool _isLoading = false;
   bool _isMedicalMode = false;
+  List<Map<String, dynamic>> _flashDeals = [];
 
   final List<Map<String, String>> _origins = [
     {'iata': 'IST', 'city': 'İstanbul'},
@@ -55,6 +57,12 @@ class _SearchScreenState extends State<SearchScreen> {
     super.initState();
     initializeDateFormatting('tr_TR', null);
     _model = SearchModel();
+    _loadFlashDeals();
+  }
+
+  Future<void> _loadFlashDeals() async {
+    final deals = await ApiService.getFlashDeals();
+    if (mounted) setState(() => _flashDeals = deals);
   }
 
   Future<void> _search() async {
@@ -132,7 +140,11 @@ class _SearchScreenState extends State<SearchScreen> {
                     _buildPassengerSelector(),
                     const SizedBox(height: 20),
                     _buildBudgetSlider(),
-                    const SizedBox(height: 32),
+                    const SizedBox(height: 24),
+                    if (_flashDeals.isNotEmpty) ...[
+                      _buildFlashDealsSection(),
+                      const SizedBox(height: 20),
+                    ],
                     _buildSearchButton(),
                     const SizedBox(height: 20),
                   ],
@@ -154,7 +166,7 @@ class _SearchScreenState extends State<SearchScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                _isMedicalMode ? '🏥 Sağlık Turizmi' : '✈️ Tatil Bulucu',
+                _isMedicalMode ? 'Sağlık Turizmi' : 'Tatil Bulucu',
                 style: const TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.w700,
@@ -216,8 +228,8 @@ class _SearchScreenState extends State<SearchScreen> {
       ),
       child: Row(
         children: [
-          Expanded(child: _modeBtn('✈️ Seyahat', false)),
-          Expanded(child: _modeBtn('🏥 Sağlık', true)),
+          Expanded(child: _modeBtn('Seyahat', false)),
+          Expanded(child: _modeBtn('Sağlık', true)),
         ],
       ),
     );
@@ -526,16 +538,16 @@ class _SearchScreenState extends State<SearchScreen> {
     String segmentLabel;
     Color segmentColor;
     if (_isMedicalMode) {
-      segmentLabel = '🏥 Sağlık Turizmi';
+      segmentLabel = 'Sağlık Turizmi';
       segmentColor = AppTheme.teal;
     } else if (budget < 25000) {
-      segmentLabel = '💚 Ekonomik';
+      segmentLabel = 'Ekonomik';
       segmentColor = const Color(0xFF22C55E);
     } else if (budget < 60000) {
-      segmentLabel = '💙 Standart';
+      segmentLabel = 'Standart';
       segmentColor = AppTheme.teal;
     } else {
-      segmentLabel = '👑 Premium';
+      segmentLabel = 'Premium';
       segmentColor = const Color(0xFF8B5CF6);
     }
 
@@ -688,8 +700,8 @@ class _SearchScreenState extends State<SearchScreen> {
                       color: Colors.white, strokeWidth: 2.5))
               : Text(
                   _isMedicalMode
-                      ? '🏥 Sağlık Paketi Bul'
-                      : '🚀 Bütçeme Uygun Rotaları Bul',
+                      ? 'Sağlık Paketi Bul'
+                      : 'Bütçeme Uygun Rotaları Bul',
                   style: const TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
@@ -697,6 +709,154 @@ class _SearchScreenState extends State<SearchScreen> {
                 ),
         ),
       ),
+    );
+  }
+
+  Widget _buildFlashDealsSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              width: 8, height: 8,
+              decoration: const BoxDecoration(
+                color: AppTheme.accent,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 8),
+            const Text(
+              'Son Dakika Fırsatları',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: AppTheme.textPrimary,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: AppTheme.accent.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(99),
+              ),
+              child: Text(
+                '${_flashDeals.length} fırsat',
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.accent,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 110,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: _flashDeals.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 10),
+            itemBuilder: (ctx, i) {
+              final deal = _flashDeals[i];
+              final clinic = deal['clinics'] as Map? ?? {};
+              final discount = deal['flash_discount_percent'] ?? 0;
+              final priceEur = deal['price_eur'] ?? 0;
+              final flashPrice = priceEur * (1 - discount / 100);
+              return GestureDetector(
+                onTap: () {
+                  setState(() => _isMedicalMode = true);
+                  Navigator.push(context, MaterialPageRoute(
+                    builder: (ctx) => MedicalScreen(
+                      searchModel: _model,
+                      destinationIata: 'AYT',
+                      cityName: 'Antalya',
+                      flightCostTL: _model.totalBudgetTL * 0.10,
+                    ),
+                  ));
+                },
+                child: Container(
+                  width: 200,
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: AppTheme.bgSecondary,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: AppTheme.accent.withOpacity(0.3)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              deal['treatment_name_tr'] ?? '--',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: AppTheme.textPrimary,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: AppTheme.accent,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              '-%$discount',
+                              style: const TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        clinic['name'] ?? '--',
+                        style: const TextStyle(
+                            fontSize: 11, color: AppTheme.textMuted),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const Spacer(),
+                      Row(
+                        children: [
+                          Text(
+                            '€${flashPrice.toInt()}',
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.accent,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            '€${priceEur.toInt()}',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: AppTheme.textMuted,
+                              decoration: TextDecoration.lineThrough,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 

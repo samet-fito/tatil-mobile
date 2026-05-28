@@ -316,12 +316,9 @@ class _ClinicFormSheetState extends State<ClinicFormSheet> {
     _addressCtrl = TextEditingController(text: c?['address'] ?? '');
     _phoneCtrl = TextEditingController(text: c?['contact_phone'] ?? '');
     _emailCtrl = TextEditingController(text: c?['contact_email'] ?? '');
-    _ratingCtrl = TextEditingController(
-        text: c?['rating']?.toString() ?? '8.0');
+    _ratingCtrl = TextEditingController(text: c?['rating']?.toString() ?? '8.0');
     _commissionCtrl = TextEditingController(
-        text: c != null
-            ? (c['commission_rate'] * 100).toInt().toString()
-            : '20');
+        text: c != null ? (c['commission_rate'] * 100).toInt().toString() : '20');
     _isMinistry = c?['is_ministry_accredited'] ?? false;
     _isJci = c?['is_jci_accredited'] ?? false;
   }
@@ -349,8 +346,7 @@ class _ClinicFormSheetState extends State<ClinicFormSheet> {
       'contact_phone': _phoneCtrl.text,
       'contact_email': _emailCtrl.text,
       'rating': double.tryParse(_ratingCtrl.text) ?? 8.0,
-      'commission_rate':
-          (int.tryParse(_commissionCtrl.text) ?? 20) / 100,
+      'commission_rate': (int.tryParse(_commissionCtrl.text) ?? 20) / 100,
       'is_ministry_accredited': _isMinistry,
       'is_jci_accredited': _isJci,
       'is_active': true,
@@ -361,7 +357,7 @@ class _ClinicFormSheetState extends State<ClinicFormSheet> {
   Widget build(BuildContext context) {
     return Container(
       decoration: const BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.bgSecondary,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       padding: EdgeInsets.fromLTRB(
@@ -370,38 +366,33 @@ class _ClinicFormSheetState extends State<ClinicFormSheet> {
         key: _formKey,
         child: SingleChildScrollView(
           child: Column(
-            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Center(
                 child: Container(
-                  width: 40,
-                  height: 4,
+                  width: 40, height: 4,
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
+                    color: AppTheme.border,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
               ),
               const SizedBox(height: 16),
               Text(
-                widget.clinic != null
-                    ? '✏️ Kliniği Düzenle'
-                    : '➕ Yeni Klinik Ekle',
+                widget.clinic != null ? 'Kliniği Düzenle' : 'Yeni Klinik Ekle',
                 style: const TextStyle(
-                    fontSize: 18, fontWeight: FontWeight.w700),
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.textPrimary),
               ),
               const SizedBox(height: 16),
               _field(_nameCtrl, 'Klinik Adı', 'Örn: Antalya Clinic'),
               const SizedBox(height: 10),
               Row(
                 children: [
-                  Expanded(
-                      child: _field(_cityCtrl, 'Şehir', 'Antalya')),
+                  Expanded(child: _field(_cityCtrl, 'Şehir', 'Antalya')),
                   const SizedBox(width: 10),
-                  Expanded(
-                      child:
-                          _field(_countryCtrl, 'Ülke', 'Turkey')),
+                  Expanded(child: _field(_countryCtrl, 'Ülke', 'Turkey')),
                 ],
               ),
               const SizedBox(height: 10),
@@ -409,40 +400,31 @@ class _ClinicFormSheetState extends State<ClinicFormSheet> {
               const SizedBox(height: 10),
               Row(
                 children: [
-                  Expanded(
-                      child: _field(
-                          _phoneCtrl, 'Telefon', '+90 xxx xxx xx xx')),
+                  Expanded(child: _field(_phoneCtrl, 'Telefon', '+90 xxx')),
                   const SizedBox(width: 10),
-                  Expanded(
-                      child: _field(
-                          _emailCtrl, 'E-posta', 'info@klinik.com')),
+                  Expanded(child: _field(_emailCtrl, 'E-posta', 'info@klinik.com')),
                 ],
               ),
               const SizedBox(height: 10),
               Row(
                 children: [
-                  Expanded(
-                      child: _field(_ratingCtrl, 'Puan (0-10)', '9.0',
-                          isNumber: true)),
+                  Expanded(child: _field(_ratingCtrl, 'Puan (0-10)', '9.0', isNumber: true)),
                   const SizedBox(width: 10),
-                  Expanded(
-                      child: _field(
-                          _commissionCtrl, 'Komisyon (%)', '20',
-                          isNumber: true)),
+                  Expanded(child: _field(_commissionCtrl, 'Komisyon (%)', '20', isNumber: true)),
                 ],
               ),
-              const SizedBox(height: 10),
-              _switchRow('🏛️ Sağlık Bakanlığı Onaylı', _isMinistry,
-                  (v) => setState(() => _isMinistry = v)),
-              _switchRow('🌍 JCI Akreditasyonlu', _isJci,
-                  (v) => setState(() => _isJci = v)),
               const SizedBox(height: 16),
+              _switchRow('Sağlık Bakanlığı Onaylı', _isMinistry,
+                  (v) => setState(() => _isMinistry = v)),
+              _switchRow('JCI Akreditasyonlu', _isJci,
+                  (v) => setState(() => _isJci = v)),
+              const SizedBox(height: 20),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: _save,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.health,
+                    backgroundColor: AppTheme.teal,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12)),
@@ -463,18 +445,34 @@ class _ClinicFormSheetState extends State<ClinicFormSheet> {
     );
   }
 
-  Widget _switchRow(
-      String label, bool value, Function(bool) onChanged) {
-    return Row(
-      children: [
-        Text(label, style: const TextStyle(fontSize: 13)),
-        const Spacer(),
-        Switch(
-          value: value,
-          onChanged: onChanged,
-          activeColor: AppTheme.health,
-        ),
-      ],
+  Widget _switchRow(String label, bool value, Function(bool) onChanged) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppTheme.bgTertiary,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.border),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: AppTheme.textPrimary,
+              ),
+            ),
+          ),
+          Switch(
+            value: value,
+            onChanged: onChanged,
+            activeColor: AppTheme.teal,
+          ),
+        ],
+      ),
     );
   }
 
@@ -484,35 +482,31 @@ class _ClinicFormSheetState extends State<ClinicFormSheet> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label,
-            style: const TextStyle(
-                fontSize: 12, color: AppTheme.textMuted)),
+            style: const TextStyle(fontSize: 12, color: AppTheme.textMuted)),
         const SizedBox(height: 4),
         TextFormField(
           controller: ctrl,
-          keyboardType:
-              isNumber ? TextInputType.number : TextInputType.text,
+          keyboardType: isNumber ? TextInputType.number : TextInputType.text,
+          style: const TextStyle(color: AppTheme.textPrimary),
           validator: (v) => v!.isEmpty ? '$label zorunlu' : null,
           decoration: InputDecoration(
             hintText: hint,
+            hintStyle: const TextStyle(color: AppTheme.textMuted),
             filled: true,
-            fillColor: AppTheme.background,
+            fillColor: AppTheme.bgTertiary,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide:
-                  BorderSide(color: Colors.black.withOpacity(0.08)),
+              borderSide: const BorderSide(color: AppTheme.border),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide:
-                  BorderSide(color: Colors.black.withOpacity(0.08)),
+              borderSide: const BorderSide(color: AppTheme.border),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide:
-                  const BorderSide(color: AppTheme.health),
+              borderSide: const BorderSide(color: AppTheme.teal),
             ),
-            contentPadding: const EdgeInsets.symmetric(
-                horizontal: 12, vertical: 10),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           ),
         ),
       ],

@@ -1,3 +1,4 @@
+import '../screens/route_detail_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -261,7 +262,7 @@ class RouteResultCard extends StatelessWidget {
                     style: TextStyle(
                         fontSize: 11,
                         color: AppTheme.textMuted),
-                  ),
+   ),
                   const SizedBox(height: 2),
                   Text(
                     _fmt(route.estimatedCost.total),
@@ -295,21 +296,24 @@ class RouteResultCard extends StatelessWidget {
                       ),
                     ),
                   const SizedBox(width: 10),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 18, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: route.isAffordable
-                          ? AppTheme.accent
-                          : const Color(0xFF7F1D1D),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Text(
-                      'İncele',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
+                  GestureDetector(
+                    onTap: onTap,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 18, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: route.isAffordable
+                            ? AppTheme.accent
+                            : const Color(0xFF7F1D1D),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Text(
+                        'İncele',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ),
@@ -320,7 +324,7 @@ class RouteResultCard extends StatelessWidget {
         ],
       ),
     );
-  }
+  }               
 
   // ============================================================
   // AKILLI ÖNERİ

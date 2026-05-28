@@ -50,7 +50,7 @@ class _MedicalDetailScreenState extends State<MedicalDetailScreen> {
         slivers: [
           // Hero Header
           SliverAppBar(
-            expandedHeight: 180,
+            expandedHeight: 220,
             pinned: true,
             backgroundColor: AppTheme.health,
             leading: IconButton(
@@ -237,37 +237,40 @@ class _MedicalDetailScreenState extends State<MedicalDetailScreen> {
   // ROZETLER
   // ============================================================
   Widget _buildBadges(MedicalClinic? clinic) {
-    return Wrap(
-      spacing: 8,
-      children: [
-        if (clinic?.isMinistryAccredited == true)
-          _badge('🏛️ Sağlık Bakanlığı Onaylı', const Color(0xFF065F46)),
-        if (clinic?.isJciAccredited == true)
-          _badge('🌍 JCI Akreditasyonlu', const Color(0xFF1E40AF)),
-        _badge('✅ Klinik Onaylı', const Color(0xFF6D28D9)),
-        _badge('%${widget.package.successRate.toInt()} Başarı', const Color(0xFF92400E)),
-      ],
-    );
-  }
+  return Wrap(
+    spacing: 6,
+    runSpacing: 6,
+    children: [
+      if (clinic?.isMinistryAccredited == true)
+        _badge('Sağlık Bakanlığı Onaylı', const Color(0xFF065F46)),
+      if (clinic?.isJciAccredited == true)
+        _badge('JCI Akreditasyonlu', const Color(0xFF1E40AF)),
+      _badge('Klinik Onaylı', const Color(0xFF6D28D9)),
+      _badge('%${widget.package.successRate.toInt()} Başarı', const Color(0xFF92400E)),
+    ],
+  );
+}
 
   Widget _badge(String label, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.15),
-        borderRadius: BorderRadius.circular(99),
-        border: Border.all(color: Colors.white.withOpacity(0.3)),
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+    decoration: BoxDecoration(
+      color: Colors.white.withOpacity(0.15),
+      borderRadius: BorderRadius.circular(99),
+      border: Border.all(color: Colors.white.withOpacity(0.3)),
+    ),
+    child: Text(
+      label,
+      style: const TextStyle(
+        color: Colors.white,
+        fontSize: 10,
+        fontWeight: FontWeight.w600,
       ),
-      child: Text(
-        label,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
-  }
+      overflow: TextOverflow.ellipsis,
+      maxLines: 1,
+    ),
+  );
+}
 
   // ============================================================
   // MALİYET ÖZETİ
