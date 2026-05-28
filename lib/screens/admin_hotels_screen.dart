@@ -235,7 +235,7 @@ class _AdminHotelsScreenState extends State<AdminHotelsScreen> {
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
+        mainAxisSize: MainAxisSize.max,
         children: [
           Text(emoji, style: const TextStyle(fontSize: 12)),
           const SizedBox(width: 4),
@@ -271,6 +271,8 @@ class _HotelFormSheetState extends State<HotelFormSheet> {
   late TextEditingController _phoneCtrl;
   String _hotelType = 'hotel';
   double _starRating = 3.0;
+  bool _isSponsored = false;
+  double _bonusScore = 5.0;
 
   final List<String> _hotelTypes = [
     'hotel', 'boutique', 'pension', 'apart', 'hostel'
@@ -292,6 +294,8 @@ class _HotelFormSheetState extends State<HotelFormSheet> {
         TextEditingController(text: h?['contact_phone'] ?? '');
     _hotelType = h?['hotel_type'] ?? 'hotel';
     _starRating = (h?['star_rating'] ?? 3.0).toDouble();
+  _isSponsored = h?['is_sponsored'] ?? false;
+_bonusScore = (h?['bonus_score'] ?? 5.0).toDouble().clamp(1.0, 10.0);
   }
 
   @override
@@ -316,9 +320,11 @@ class _HotelFormSheetState extends State<HotelFormSheet> {
       'contact_phone': _phoneCtrl.text,
       'hotel_type': _hotelType,
       'star_rating': _starRating,
-      'is_active': true,
-      'is_partner': true,
-      'commission_rate': 0.12,
+     'is_active': true,
+'is_partner': true,
+'commission_rate': 0.12,
+'is_sponsored': _isSponsored,
+'bonus_score': _isSponsored ? _bonusScore : 0,
     });
   }
 
@@ -335,7 +341,7 @@ class _HotelFormSheetState extends State<HotelFormSheet> {
         key: _formKey,
         child: SingleChildScrollView(
           child: Column(
-            mainAxisSize: MainAxisSize.min,
+            mainAxisSize: MainAxisSize.max,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Center(
@@ -435,6 +441,58 @@ class _HotelFormSheetState extends State<HotelFormSheet> {
                 activeColor: AppTheme.accent,
                 onChanged: (v) => setState(() => _starRating = v),
               ),
+              const SizedBox(height: 10),
+Row(
+  children: [
+    Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Sponsorlu Listeleme',
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+          ),
+          const Text(
+            '+5 bonus puan, En İyi Seçim rozeti',
+            style: TextStyle(fontSize: 11, color: AppTheme.textMuted),
+          ),
+        ],
+      ),
+    ),
+    Switch(
+      value: _isSponsored,
+      onChanged: (v) => setState(() => _isSponsored = v),
+      activeColor: const Color(0xFFFFD700),
+    ),
+  ],
+),
+if (_isSponsored) ...[
+  const SizedBox(height: 8),
+  Row(
+    children: [
+      const Text('Bonus Puan:', style: TextStyle(fontSize: 12)),
+      Expanded(
+        child: Slider(
+          value: _bonusScore,
+          min: 1,
+          max: 10,
+          divisions: 9,
+          label: '+${_bonusScore.toInt()} puan',
+          activeColor: const Color(0xFFFFD700),
+          onChanged: (v) => setState(() => _bonusScore = v),
+        ),
+      ),
+      Text(
+        '+${_bonusScore.toInt()}',
+        style: const TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w700,
+          color: Color(0xFFFFD700),
+        ),
+      ),
+    ],
+  ),
+],
               const SizedBox(height: 16),
               SizedBox(
                 width: double.infinity,
