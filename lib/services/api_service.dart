@@ -408,58 +408,58 @@ class ApiService {
   // PYTHON ROTA MOTORU
   // ============================================================
   static Future<List<RouteResultModel>> searchRoutes({
-    required String originIata,
-    required DateTime departureDate,
-    required DateTime returnDate,
-    required double totalBudgetTL,
-    required int passengers,
-  }) async {
-    try {
-      final response = await http.post(
-        Uri.parse(AppConstants.pythonSearchEndpoint),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-  'originIata': originIata,
-  'departureDate': departureDate.toIso8601String().split('T')[0],
-  'returnDate': returnDate.toIso8601String().split('T')[0],
-  'totalBudgetTL': totalBudgetTL,
-  'passengers': passengers,
-}),
-      ).timeout(AppConstants.receiveTimeout);
+  required String originIata,
+  required DateTime departureDate,
+  required DateTime returnDate,
+  required double totalBudgetTL,
+  required int passengers,
+}) async {
+  try {
+    final response = await http.post(
+      Uri.parse(AppConstants.pythonSearchEndpoint),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'originIata': originIata,
+        'departureDate': departureDate.toIso8601String().split('T')[0],
+        'returnDate': returnDate.toIso8601String().split('T')[0],
+        'totalBudgetTL': totalBudgetTL,
+        'passengers': passengers,
+      }),
+    ).timeout(AppConstants.receiveTimeout);
 
-      if (response.statusCode == 200) {
-  final data = jsonDecode(response.body);
-  if (data['success'] == true) {
-    final innerData = data['data'];
-    // Gateway'den gelen yapı: data.packages (liste)
-    // Python'dan direkt gelen yapı: data (liste)
-    List list = [];
-    if (innerData is List) {
-  list = innerData;
-} else if (innerData is Map) {
-  if (innerData['packages'] != null) {
-    list = innerData['packages'] as List;
-  } else if (innerData['data'] != null) {
-    final inner = innerData['data'];
-    if (inner is List) {
-      list = inner;
-    } else if (inner is Map && inner['packages'] != null) {
-      list = inner['packages'] as List;
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      if (data['success'] == true) {
+        final innerData = data['data'];
+        List list = [];
+
+        if (innerData is List) {
+          list = innerData;
+        } else if (innerData is Map) {
+          if (innerData['packages'] != null) {
+            list = innerData['packages'] as List;
+          }
+        }
+
+        if (list.isNotEmpty) {
+          return list
+              .map((item) => RouteResultModel.fromJson(
+                  item as Map<String, dynamic>))
+              .toList();
+        }
+      }
     }
+  } catch (e) {
+    // Mock data döndür
   }
+  return _getMockRouteResults(
+    originIata,
+    departureDate,
+    returnDate,
+    totalBudgetTL,
+    passengers,
+  );
 }
-    return list
-        .map((item) => RouteResultModel.fromJson(item as Map<String, dynamic>))
-        .toList();
-  }
-}
-    } catch (e) {
-      // Mock data döndür
-    }
-    return _getMockRouteResults(
-      originIata, departureDate, returnDate, totalBudgetTL, passengers,
-    );
-  }
 
   static List<RouteResultModel> _getMockRouteResults(
     String originIata,

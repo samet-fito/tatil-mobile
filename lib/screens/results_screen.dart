@@ -193,7 +193,6 @@ class _ResultsScreenState extends State<ResultsScreen> {
 
     return Column(
       children: [
-        // Sonuç başlığı
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
           color: AppTheme.cardBg,
@@ -229,8 +228,6 @@ class _ResultsScreenState extends State<ResultsScreen> {
             ],
           ),
         ),
-
-        // Paket listesi
         Expanded(
           child: RefreshIndicator(
             onRefresh: _loadPackages,
@@ -242,16 +239,16 @@ class _ResultsScreenState extends State<ResultsScreen> {
                 return PackageCard(
                   package: _packages[index],
                   onTap: () {
-  Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (context) => DetailScreen(
-        package: _packages[index],
-        searchModel: widget.searchModel,
-      ),
-    ),
-  );
-},
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => DetailScreen(
+                          package: _packages[index],
+                          searchModel: widget.searchModel,
+                        ),
+                      ),
+                    );
+                  },
                 );
               },
             ),
