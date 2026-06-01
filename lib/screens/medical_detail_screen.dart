@@ -361,49 +361,54 @@ class _MedicalDetailScreenState extends State<MedicalDetailScreen> {
   // SİGORTA
   // ============================================================
   Widget _buildInsuranceBox() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFF8E1),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFF0C97A), width: 1.5),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  '🛡️ Medikal Seyahat Sigortası',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+  return Container(
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: const Color(0xFF2A1F00),
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.4)),
+    ),
+    child: Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Medikal Seyahat Sigortası',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFFF59E0B),
                 ),
-                const SizedBox(height: 4),
-                const Text(
-                  'Tedavi komplikasyonları + iptal güvencesi',
-                  style: TextStyle(fontSize: 12, color: AppTheme.textMuted),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'Tedavi komplikasyonları + iptal güvencesi',
+                style: TextStyle(
+                    fontSize: 12, color: AppTheme.textSecondary),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                '+450 TL · Medikal seyahatte şart!',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFFF59E0B),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  '+$INSURANCE_PRICE TL · Medikal seyahatte şart!',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF854F0B),
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-          Switch(
-            value: _insuranceSelected,
-            onChanged: (val) => setState(() => _insuranceSelected = val),
-            activeColor: AppTheme.health,
-          ),
-        ],
-      ),
-    );
-  }
+        ),
+        Switch(
+          value: _insuranceSelected,
+          onChanged: (val) => setState(() => _insuranceSelected = val),
+          activeColor: const Color(0xFFF59E0B),
+        ),
+      ],
+    ),
+  );
+}
 
   // ============================================================
   // TEDAVİ SÜRECİ TİMELINE
@@ -684,37 +689,90 @@ class _MedicalDetailScreenState extends State<MedicalDetailScreen> {
   // DAHİL OLANLAR
   // ============================================================
   Widget _buildIncludes() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppTheme.cardBg,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.black.withOpacity(0.06)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            '✅ Pakete Dahil Olanlar',
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+  final includes = widget.package.includes;
+  final hasHotel = includes.any((i) => i.toLowerCase().contains('otel') || i.toLowerCase().contains('hotel'));
+  final hasFlight = includes.any((i) => i.toLowerCase().contains('uçuş') || i.toLowerCase().contains('transfer'));
+
+  return Container(
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: AppTheme.bgSecondary,
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: AppTheme.border),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Pakete Dahil Olanlar',
+          style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: AppTheme.textPrimary),
+        ),
+        const SizedBox(height: 12),
+        // Tedavi paketi içerikleri
+        ...includes.map((item) => Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Row(
+            children: [
+              Icon(Icons.check_circle, size: 18, color: AppTheme.teal),
+              const SizedBox(width: 10),
+              Text(item, style: const TextStyle(
+                  fontSize: 13, color: AppTheme.textPrimary)),
+            ],
           ),
-          const SizedBox(height: 12),
-          ...widget.package.includes.map((item) => Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Row(
-                  children: [
-                    Icon(Icons.check_circle,
-                        size: 18, color: AppTheme.health),
-                    const SizedBox(width: 10),
-                    Text(item,
-                        style: const TextStyle(fontSize: 13)),
-                  ],
-                ),
-              )),
-        ],
-      ),
-    );
-  }
+        )),
+        const SizedBox(height: 12),
+        const Divider(height: 1),
+        const SizedBox(height: 12),
+        // Uçuş ve otel durumu
+        const Text(
+          'Paket Dışı (Ayrıca Hesaplanır)',
+          style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.textMuted),
+        ),
+        const SizedBox(height: 8),
+        if (!hasFlight)
+          _notIncludedRow('Uçuş bileti ayrıca hesaplanmıştır',
+              'Yukarıdaki maliyet dağılımına dahildir'),
+        if (!hasHotel)
+          _notIncludedRow('Otel konaklaması ayrıca hesaplanmıştır',
+              'Yukarıdaki maliyet dağılımına dahildir'),
+        _notIncludedRow('VIP Havalimanı transferi',
+            'Yukarıdaki maliyet dağılımına dahildir'),
+      ],
+    ),
+  );
+}
+
+Widget _notIncludedRow(String title, String sub) {
+  return Padding(
+    padding: const EdgeInsets.symmetric(vertical: 4),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(Icons.info_outline, size: 16, color: AppTheme.textMuted),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title,
+                  style: const TextStyle(
+                      fontSize: 13, color: AppTheme.textSecondary)),
+              Text(sub,
+                  style: const TextStyle(
+                      fontSize: 11, color: AppTheme.textMuted)),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
+}
 
   // ============================================================
   // DOKTOR BİLGİSİ
