@@ -555,4 +555,38 @@ class ApiService {
       return [];
     }
   }
+// ============================================================
+// DUFFEL GERÇEK UÇUŞ FİYATLARI
+// ============================================================
+static Future<List<Map<String, dynamic>>> searchRealFlights({
+  required String originIata,
+  required String destinationIata,
+  required DateTime departureDate,
+  required DateTime returnDate,
+  required int passengers,
+}) async {
+  try {
+    final response = await http.post(
+      Uri.parse('${AppConstants.baseUrl}/flights/search'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'originIata': originIata,
+        'destinationIata': destinationIata,
+        'departureDate': departureDate.toIso8601String().split('T')[0],
+        'returnDate': returnDate.toIso8601String().split('T')[0],
+        'passengers': passengers,
+      }),
+    ).timeout(AppConstants.receiveTimeout);
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      if (data['success'] == true) {
+        return List<Map<String, dynamic>>.from(data['data'] ?? []);
+      }
+    }
+  } catch (e) {
+    // Mock döndür
+  }
+  return [];
+}
 }

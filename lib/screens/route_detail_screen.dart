@@ -1,3 +1,4 @@
+import '../services/api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import '../models/route_result_model.dart';
@@ -13,7 +14,31 @@ class RouteDetailScreen extends StatefulWidget {
 
 class _RouteDetailScreenState extends State<RouteDetailScreen> {
   bool _rentCarAdded = false;
+  List<Map<String, dynamic>> _realFlights = [];
+  bool _loadingFlights = true;
   bool _showBudgetTips = false;
+  
+  @override
+void initState() {
+  super.initState();
+  _loadRealFlights();
+}
+
+Future<void> _loadRealFlights() async {
+  final flights = await ApiService.searchRealFlights(
+    originIata: 'IST',
+    destinationIata: widget.route.destinationIata,
+    departureDate: DateTime.now().add(const Duration(days: 30)),
+    returnDate: DateTime.now().add(const Duration(days: 35)),
+    passengers: widget.route.passengers,
+  );
+  if (mounted) {
+    setState(() {
+      _realFlights = flights;
+      _loadingFlights = false;
+    });
+  }
+}
 
   String _fmt(int price) {
     return '${price.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.')} TL';
@@ -177,6 +202,10 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
             _buildFinancialCard(),
             const SizedBox(height: 16),
             if (!route.isAffordable || route.alternativeSuggestion != null) _buildBudgetAccordion(),
+            _buildSectionTitle('Ucus Secenekleri'),
+            const SizedBox(height: 12),
+            _buildRealFlights(),
+            const SizedBox(height: 20),
             _buildSectionTitle('Gunluk Plan'),
             const SizedBox(height: 12),
             _buildTimeline(),
@@ -499,6 +528,90 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
     );
   }
 
+  Widget _buildRealFlights() {
+  if (_loadingFlights) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.bgSecondary,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.border),
+      ),
+      child: const Center(
+        child: CircularProgressIndicator(color: AppTheme.teal),
+      ),
+    );
+  }
+
+  if (_realFlights.isEmpty) return const SizedBox();
+
+  return Container(
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: AppTheme.bgSecondary,
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: AppTheme.teal.withOpacity(0.3)),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(CupertinoIcons.airplane, color: AppTheme.teal, size: 16),
+            const SizedBox(width: 8),
+            const Text('Gerçek Uçuş Fiyatları',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppTheme.teal)),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: AppTheme.teal.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(99),
+              ),
+              child: const Text('Canlı',
+                  style: TextStyle(fontSize: 10, color: AppTheme.teal, fontWeight: FontWeight.w600)),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        ..._realFlights.take(3).map((flight) => Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppTheme.bgTertiary,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(flight['airline'] ?? '--',
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
+                    Text(
+                      '${flight['stops'] == 0 ? 'Direkt' : '${flight['stops']} aktarma'} · ${flight['duration'] ?? '--'}',
+                      style: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
+                    ),
+                  ],
+                ),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text('${flight['totalAmountTL']?.toInt() ?? 0} TL',
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppTheme.teal)),
+                  Text('€${flight['totalAmount'] ?? 0}',
+                      style: const TextStyle(fontSize: 11, color: AppTheme.textMuted)),
+                ],
+              ),
+            ],
+          ),
+        )),
+      ],
+    ),
+  );
+}
   Widget _buildSectionTitle(String title) {
     return Text(title,
         style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppTheme.textPrimary, letterSpacing: -0.3));
