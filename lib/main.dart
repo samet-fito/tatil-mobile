@@ -2,7 +2,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'screens/search_screen.dart';
+import 'screens/main_screen.dart';
 import 'screens/login_screen.dart';
 import 'services/auth_service.dart';
 import 'theme/app_theme.dart';
@@ -12,17 +12,14 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('tr_TR', null);
 
-  final prefs = await SharedPreferences.getInstance();
-  await prefs.remove('is_guest');
-  await prefs.remove('guest_session_id');
-
-  await Supabase.initialize(
-    url: AppConstants.supabaseUrl,
-    anonKey: AppConstants.supabaseAnonKey,
-    authOptions: const FlutterAuthClientOptions(
-      authFlowType: AuthFlowType.implicit,
-    ),
-  );
+await Supabase.initialize(
+  url: AppConstants.supabaseUrl,
+  anonKey: AppConstants.supabaseAnonKey,
+  authOptions: const FlutterAuthClientOptions(
+    authFlowType: AuthFlowType.implicit,
+    autoRefreshToken: true,
+  ),
+);
 
   runApp(const TatilBulucuApp());
 }
@@ -33,7 +30,7 @@ class TatilBulucuApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Tatil Bulucu',
+      title: 'Vizegoo',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       home: const AuthWrapper(),
@@ -51,15 +48,24 @@ class AuthWrapper extends StatefulWidget {
 class _AuthWrapperState extends State<AuthWrapper> {
   bool _initialized = false;
 
-  @override
-  void initState() {
-    super.initState();
-    AuthService.initGuestState().then((_) {
-      if (mounted) setState(() => _initialized = true);
-    });
-    Supabase.instance.client.auth.onAuthStateChange.listen((data) {
-      if (mounted) setState(() {});
-    });
+@override
+void initState() {
+  super.initState();
+  _init();
+  Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+    if (mounted) {
+      final session = data.session;
+      if (session != null) {
+        AuthService.clearGuest();
+      }
+      setState(() {});
+    }
+  });
+}
+
+  Future<void> _init() async {
+    await AuthService.initGuestState();
+    if (mounted) setState(() => _initialized = true);
   }
 
   @override
@@ -77,7 +83,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
     final isGuest = AuthService.isGuest;
 
     if (session != null || isGuest) {
-      return const SearchScreen();
+      return const MainScreen();
     }
     return const LoginScreen();
   }

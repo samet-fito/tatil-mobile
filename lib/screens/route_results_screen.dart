@@ -250,7 +250,7 @@ class _RouteResultsScreenState extends State<RouteResultsScreen> {
             ),
           ),
 
-        // Rota listesi
+// Rota listesi
         Expanded(
           child: RefreshIndicator(
             onRefresh: _loadRoutes,
@@ -269,13 +269,18 @@ class _RouteResultsScreenState extends State<RouteResultsScreen> {
                   route: _routes[index],
                   rank: index + 1,
                   onTap: () {
-  Navigator.push(
-  context,
-  MaterialPageRoute(
-    builder: (ctx) => RouteDetailScreen(route: _routes[index]),
-  ),
-);
-},
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (ctx) => RouteDetailScreen(
+                          route: _routes[index],
+                          originIata: widget.searchModel.originIata,
+                          departureDate: widget.searchModel.departureDate,
+                          returnDate: widget.searchModel.returnDate,
+                        ),
+                      ),
+                    );
+                  },
                 );
               },
             ),

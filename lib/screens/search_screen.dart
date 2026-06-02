@@ -191,6 +191,10 @@ class _SearchScreenState extends State<SearchScreen> {
                 _showSnack('Admin için Google ile giriş yapın', isError: true);
                 return;
               }
+              if (user == null) {
+  _showSnack('Admin için giriş yapmanız gerekiyor', isError: true);
+  return;
+}
               final isAdmin = await AdminService.isAdmin();
               if (isAdmin && mounted) {
                 Navigator.push(context, MaterialPageRoute(

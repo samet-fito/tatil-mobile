@@ -1,4 +1,3 @@
-import 'package:url_launcher/url_launcher.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -15,6 +14,12 @@ class AuthService {
   // ============================================================
 static Future<bool> signInWithGoogle() async {
   try {
+    final existing = _supabase.auth.currentSession;
+    if (existing != null) {
+      _isGuest = false;
+      return true;
+    }
+
     await _supabase.auth.signInWithOAuth(
       OAuthProvider.google,
       redirectTo: 'io.supabase.tatilbulucu://login-callback',
@@ -37,8 +42,11 @@ static Future<bool> signInWithGoogle() async {
       await _supabase.auth.signInWithOAuth(
         OAuthProvider.apple,
         redirectTo: 'io.supabase.tatilbulucu://login-callback',
+        authScreenLaunchMode: LaunchMode.inAppWebView,
       );
       _isGuest = false;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('is_guest', false);
       return true;
     } catch (e) {
       return false;
@@ -68,12 +76,23 @@ static Future<bool> signInWithGoogle() async {
   // ============================================================
   // ÇIKIŞ
   // ============================================================
-  static Future<void> signOut() async {
+  static void clearGuest() {
     _isGuest = false;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('is_guest');
-    await prefs.remove('guest_session_id');
-    await _supabase.auth.signOut();
+    SharedPreferences.getInstance().then((prefs) {
+      prefs.remove('is_guest');
+    });
+  }
+
+  static Future<void> signOut() async {
+    try {
+      _isGuest = false;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('is_guest');
+      await prefs.remove('guest_session_id');
+      await _supabase.auth.signOut();
+    } catch (e) {
+      // ignore
+    }
   }
 
   // ============================================================
@@ -85,7 +104,6 @@ static Future<bool> signInWithGoogle() async {
     return AuthStatus.notLoggedIn;
   }
 
-  // Uygulama başlangıcında misafir durumunu kontrol et
   static Future<void> initGuestState() async {
     final prefs = await SharedPreferences.getInstance();
     _isGuest = prefs.getBool('is_guest') ?? false;

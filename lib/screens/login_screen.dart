@@ -1,4 +1,6 @@
+import 'main_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
 import 'search_screen.dart';
@@ -13,21 +15,31 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
 
-  Future<void> _signInWithGoogle() async {
-    setState(() => _isLoading = true);
-    final success = await AuthService.signInWithGoogle();
+Future<void> _signInWithGoogle() async {
+  setState(() => _isLoading = true);
+  try {
+    await AuthService.signInWithGoogle();
+    await Future.delayed(const Duration(seconds: 3));
     if (mounted) {
-      setState(() => _isLoading = false);
-      if (!success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Giriş başarısız. Tekrar deneyin.'),
-            backgroundColor: Colors.red,
-          ),
+      final session = Supabase.instance.client.auth.currentSession;
+      if (session != null) {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (ctx) => const MainScreen()),
+          (route) => false,
         );
       }
     }
+  } catch (e) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Giris basarisiz.')),
+      );
+    }
+  } finally {
+    if (mounted) setState(() => _isLoading = false);
   }
+}
 
   Future<void> _signInWithApple() async {
     ScaffoldMessenger.of(context).showSnackBar(
