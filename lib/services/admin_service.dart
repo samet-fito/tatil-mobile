@@ -268,4 +268,16 @@ static Future<List<Map<String, dynamic>>> getTreatments(
       return false;
     }
   }
+static Future<int> getPendingClinicsCount() async {
+  try {
+    final supabase = Supabase.instance.client;
+    final result = await supabase
+        .from('clinics')
+        .select('id')
+        .eq('status', 'pending');
+    return (result as List).length;
+  } catch (e) {
+    return 0;
+  }
+}
 }
