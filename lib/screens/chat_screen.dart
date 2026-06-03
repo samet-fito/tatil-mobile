@@ -96,9 +96,9 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF0EDE8),
+      backgroundColor: AppTheme.bgPrimary,
       appBar: AppBar(
-        backgroundColor: AppTheme.primary,
+        backgroundColor: AppTheme.bgSecondary,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.pop(context),
@@ -283,7 +283,7 @@ class _ChatScreenState extends State<ChatScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: AppTheme.cardBg,
+        color: AppTheme.bgSecondary,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: card.color.withOpacity(0.2)),
         boxShadow: [
@@ -424,7 +424,7 @@ class _ChatScreenState extends State<ChatScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              color: AppTheme.cardBg,
+              color: AppTheme.bgSecondary,
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(18),
                 topRight: Radius.circular(18),
@@ -508,7 +508,7 @@ class _ChatScreenState extends State<ChatScreen> {
         MediaQuery.of(context).padding.bottom + 8,
       ),
       decoration: BoxDecoration(
-        color: AppTheme.cardBg,
+        color: AppTheme.bgSecondary,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.06),
@@ -527,7 +527,6 @@ class _ChatScreenState extends State<ChatScreen> {
                 hintText: '${widget.cityName} hakkında sor...',
                 hintStyle: const TextStyle(color: AppTheme.textMuted, fontSize: 14),
                 filled: true,
-                fillColor: const Color(0xFFF0EDE8),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(24),
                   borderSide: BorderSide.none,

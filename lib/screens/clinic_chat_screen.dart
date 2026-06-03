@@ -325,62 +325,64 @@ class _ClinicChatScreenState extends State<ClinicChatScreen> {
     );
   }
 
-  Widget _buildInputBar() {
-    return Container(
-      padding: EdgeInsets.fromLTRB(
-          16, 12, 16, MediaQuery.of(context).padding.bottom + 12),
-      decoration: BoxDecoration(
-        color: AppTheme.bgSecondary,
-        border: Border(top: BorderSide(color: AppTheme.border)),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              decoration: BoxDecoration(
-                color: AppTheme.bgTertiary,
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: AppTheme.border),
-              ),
-              child: TextField(
-                controller: _msgCtrl,
-                style: const TextStyle(
-                    color: AppTheme.textPrimary, fontSize: 14),
-                maxLines: 3,
-                minLines: 1,
-                onSubmitted: (_) => _sendMessage(),
-                decoration: const InputDecoration(
-                  hintText: 'Mesajinizi yazin...',
-                  hintStyle:
-                      TextStyle(color: AppTheme.textMuted, fontSize: 14),
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.symmetric(vertical: 10),
-                ),
+Widget _buildInputBar() {
+  return Container(
+    padding: EdgeInsets.fromLTRB(
+        16, 12, 16, MediaQuery.of(context).padding.bottom + 12),
+    decoration: BoxDecoration(
+      color: AppTheme.bgSecondary,
+      border: Border(top: BorderSide(color: AppTheme.border)),
+    ),
+    child: Row(
+      children: [
+        Expanded(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            decoration: BoxDecoration(
+              color: AppTheme.bgTertiary,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: AppTheme.border),
+            ),
+            child: TextField(
+              controller: _msgCtrl,
+              style: const TextStyle(
+                  color: AppTheme.textPrimary, fontSize: 14),
+              maxLines: 3,
+              minLines: 1,
+              onSubmitted: (_) => _sendMessage(),
+              textInputAction: TextInputAction.send,
+              decoration: const InputDecoration(
+                hintText: 'Mesajinizi yazin...',
+                hintStyle: TextStyle(
+                    color: AppTheme.textMuted, fontSize: 14),
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.symmetric(vertical: 10),
               ),
             ),
           ),
-          const SizedBox(width: 10),
-          GestureDetector(
-            onTap: _isSending ? null : _sendMessage,
-            child: Container(
-              width: 44, height: 44,
-              decoration: BoxDecoration(
-                color: AppTheme.teal,
-                borderRadius: BorderRadius.circular(22),
-              ),
-              child: _isSending
-                  ? const Padding(
-                      padding: EdgeInsets.all(12),
-                      child: CircularProgressIndicator(
-                          color: Colors.white, strokeWidth: 2),
-                    )
-                  : const Icon(CupertinoIcons.arrow_up,
-                      color: Colors.white, size: 20),
+        ),
+        const SizedBox(width: 10),
+        GestureDetector(
+          onTap: _isSending ? null : _sendMessage,
+          child: Container(
+            width: 44, height: 44,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                  colors: [AppTheme.teal, Color(0xFF0096B7)]),
+              borderRadius: BorderRadius.circular(22),
             ),
+            child: _isSending
+                ? const Padding(
+                    padding: EdgeInsets.all(12),
+                    child: CircularProgressIndicator(
+                        color: Colors.white, strokeWidth: 2),
+                  )
+                : const Icon(CupertinoIcons.arrow_up,
+                    color: Colors.white, size: 20),
           ),
-        ],
-      ),
-    );
-  }
+        ),
+      ],
+    ),
+  );
+}
 }
