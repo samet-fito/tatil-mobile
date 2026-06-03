@@ -1,3 +1,5 @@
+import 'package:flutter/cupertino.dart';
+import 'clinic_chat_screen.dart';
 import 'package:flutter/material.dart';
 import '../models/medical_model.dart';
 import '../models/search_model.dart';
@@ -189,6 +191,28 @@ class _MedicalDetailScreenState extends State<MedicalDetailScreen> {
         ),
         child: Row(
           children: [
+            GestureDetector(
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (ctx) => ClinicChatScreen(
+                    clinicId: widget.package.clinicId ?? '',
+                    clinicName: widget.package.clinic?.name ?? 'Klinik',
+                  ),
+                ),
+              ),
+              child: Container(
+                width: 48, height: 48,
+                decoration: BoxDecoration(
+                  color: AppTheme.teal.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: AppTheme.teal.withOpacity(0.3)),
+                ),
+                child: Icon(CupertinoIcons.chat_bubble,
+    color: AppTheme.teal, size: 22),
+              ),
+            ),
+            const SizedBox(width: 12),
             Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
