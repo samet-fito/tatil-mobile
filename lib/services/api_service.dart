@@ -589,4 +589,34 @@ static Future<List<Map<String, dynamic>>> searchRealFlights({
   }
   return [];
 }
+static Future<bool> registerClinic({
+  required String name,
+  required String specialty,
+  required String cityName,
+  required String contactEmail,
+  required String contactPhone,
+  required String website,
+  required String address,
+}) async {
+  try {
+    final response = await http.post(
+      Uri.parse('${AppConstants.baseUrl}/clinics/register'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'name': name,
+        'specialty': specialty,
+        'city_name': cityName,
+        'contact_email': contactEmail,
+        'contact_phone': contactPhone,
+        'website': website,
+        'address': address,
+        'country': 'Turkey',
+      }),
+    ).timeout(AppConstants.receiveTimeout);
+
+    return response.statusCode == 201;
+  } catch (e) {
+    return false;
+  }
+}
 }

@@ -1,3 +1,4 @@
+import 'clinic_register_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -289,6 +290,19 @@ class ProfileScreen extends StatelessWidget {
                 AppTheme.textMuted,
                 () {},
               ),
+              _menuItem(
+  context,
+  CupertinoIcons.building_2_fill,
+  'Klinik Basvurusu',
+  'Vizegoo partner ol, hasta kazan',
+  AppTheme.teal,
+  () => Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (ctx) => const ClinicRegisterScreen(),
+    ),
+  ),
+),
               _menuItem(
                 context,
                 CupertinoIcons.shield,
