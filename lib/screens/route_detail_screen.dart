@@ -1,3 +1,4 @@
+import 'chat_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/api_service.dart';
 import 'package:flutter/material.dart';
@@ -138,22 +139,38 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
     return Scaffold(
       backgroundColor: AppTheme.bgPrimary,
       appBar: AppBar(
-        backgroundColor: AppTheme.bgPrimary,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(CupertinoIcons.arrow_left, color: AppTheme.textPrimary),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(route.cityName,
-                style: const TextStyle(color: AppTheme.textPrimary, fontSize: 18, fontWeight: FontWeight.w700)),
-            Text('${route.country} · ${route.nights} gece',
-                style: const TextStyle(color: AppTheme.textMuted, fontSize: 12)),
-          ],
+  backgroundColor: AppTheme.bgPrimary,
+  elevation: 0,
+  leading: IconButton(
+    icon: const Icon(CupertinoIcons.arrow_left, color: AppTheme.textPrimary),
+    onPressed: () => Navigator.pop(context),
+  ),
+  title: Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(route.cityName,
+          style: const TextStyle(color: AppTheme.textPrimary, fontSize: 18, fontWeight: FontWeight.w700)),
+      Text('${route.country} · ${route.nights} gece',
+          style: const TextStyle(color: AppTheme.textMuted, fontSize: 12)),
+    ],
+  ),
+  actions: [
+    IconButton(
+      icon: const Icon(CupertinoIcons.chat_bubble, color: AppTheme.teal),
+      onPressed: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (ctx) => ChatScreen(
+            cityName: route.cityName,
+            destinationIata: route.destinationIata,
+            sessionId: widget.originIata,
+            remainingBudget: route.estimatedCost.remaining.toDouble(),
+          ),
         ),
       ),
+    ),
+  ],
+),
       bottomNavigationBar: Container(
         height: 80,
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
