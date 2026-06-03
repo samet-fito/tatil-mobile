@@ -619,4 +619,30 @@ static Future<bool> registerClinic({
     return false;
   }
 }
+static Future<List<Map<String, dynamic>>> searchHotels({
+  required String cityName,
+  required DateTime checkIn,
+  required DateTime returnDate,
+  required int adults,
+}) async {
+  try {
+    final checkInStr = checkIn.toIso8601String().split('T')[0];
+    final checkOutStr = returnDate.toIso8601String().split('T')[0];
+    final response = await http.get(
+      Uri.parse(
+        '${AppConstants.baseUrl}/hotels-search/search?cityName=${Uri.encodeComponent(cityName)}&checkIn=$checkInStr&checkOut=$checkOutStr&adults=$adults',
+      ),
+    ).timeout(const Duration(seconds: 15));
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      if (data['success'] == true) {
+        return List<Map<String, dynamic>>.from(data['data'] ?? []);
+      }
+    }
+  } catch (e) {
+    // ignore
+  }
+  return [];
+}
 }

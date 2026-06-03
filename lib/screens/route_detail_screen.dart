@@ -27,16 +27,34 @@ class RouteDetailScreen extends StatefulWidget {
 
 class _RouteDetailScreenState extends State<RouteDetailScreen> {
   bool _rentCarAdded = false;
+  List<Map<String, dynamic>> _realHotels = [];
+  bool _loadingHotels = true;
   List<Map<String, dynamic>> _realFlights = [];
   bool _loadingFlights = true;
   bool _showBudgetTips = false;
 
-  @override
-  void initState() {
-    super.initState();
-    _loadRealFlights();
-  }
 
+  @override
+void initState() {
+  super.initState();
+  _loadRealFlights();
+  _loadRealHotels();
+}
+
+Future<void> _loadRealHotels() async {
+  final hotels = await ApiService.searchHotels(
+    cityName: widget.route.cityName,
+    checkIn: widget.departureDate,
+    returnDate: widget.returnDate,
+    adults: widget.route.passengers,
+  );
+  if (mounted) {
+    setState(() {
+      _realHotels = hotels;
+      _loadingHotels = false;
+    });
+  }
+}
   Future<void> _loadRealFlights() async {
     final flights = await ApiService.searchRealFlights(
       originIata: widget.originIata,
@@ -577,82 +595,167 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
   }
 
   Widget _buildHotelSection() {
-    final cityName = widget.route.cityName;
-    final checkIn = widget.departureDate.toIso8601String().split('T')[0];
-    final checkOut = widget.returnDate.toIso8601String().split('T')[0];
-    final bookingUrl =
-        'https://www.booking.com/searchresults.html?ss=${Uri.encodeComponent(cityName)}&checkin=$checkIn&checkout=$checkOut&group_adults=${widget.route.passengers}&aid=2311236';
+  final cityName = widget.route.cityName;
+  final checkIn = widget.departureDate.toIso8601String().split('T')[0];
+  final checkOut = widget.returnDate.toIso8601String().split('T')[0];
+  final bookingUrl =
+      'https://www.booking.com/searchresults.html?ss=${Uri.encodeComponent(cityName)}&checkin=$checkIn&checkout=$checkOut&group_adults=${widget.route.passengers}&aid=2311236';
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppTheme.bgSecondary,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.teal.withOpacity(0.3)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(CupertinoIcons.house, color: AppTheme.teal, size: 16),
-              const SizedBox(width: 8),
-              const Text('Otel Secenekleri',
-                  style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      color: AppTheme.teal)),
-              const SizedBox(width: 8),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: AppTheme.teal.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(99),
-                ),
-                child: const Text('Booking.com',
-                    style: TextStyle(
-                        fontSize: 10,
-                        color: AppTheme.teal,
-                        fontWeight: FontWeight.w600)),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            '$cityName icin ${widget.route.nights} gecelik otel seceneklerini goruntule.',
-            style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
-          ),
-          const SizedBox(height: 12),
-          GestureDetector(
-            onTap: () async {
-              final uri = Uri.parse(bookingUrl);
-              if (await canLaunchUrl(uri)) {
-                await launchUrl(uri, mode: LaunchMode.inAppWebView);
-              }
-            },
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 14),
+  return Container(
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: AppTheme.bgSecondary,
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: AppTheme.teal.withOpacity(0.3)),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(CupertinoIcons.house, color: AppTheme.teal, size: 16),
+            const SizedBox(width: 8),
+            const Text('Otel Secenekleri',
+                style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.teal)),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(
-                color: AppTheme.teal,
-                borderRadius: BorderRadius.circular(12),
+                color: AppTheme.teal.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(99),
               ),
-              child: const Center(
-                child: Text(
-                  'Otelleri Goruntule',
+              child: const Text('Booking.com',
                   style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700),
+                      fontSize: 10,
+                      color: AppTheme.teal,
+                      fontWeight: FontWeight.w600)),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        if (_loadingHotels)
+          const Center(child: CircularProgressIndicator(color: AppTheme.teal))
+        else if (_realHotels.isEmpty)
+          Text(
+            '$cityName icin otel seceneklerini goruntule.',
+            style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+          )
+        else
+          Column(
+            children: _realHotels.take(3).map((hotel) {
+              return Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppTheme.bgTertiary,
+                  borderRadius: BorderRadius.circular(10),
                 ),
-              ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            hotel['name'] ?? '--',
+                            style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: AppTheme.textPrimary),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          Row(
+                            children: [
+                              const Icon(CupertinoIcons.star_fill,
+                                  color: Color(0xFFF59E0B), size: 11),
+                              const SizedBox(width: 3),
+                              Text(
+                                '${hotel['reviewScore'] ?? 0}',
+                                style: const TextStyle(
+                                    fontSize: 11, color: AppTheme.textMuted),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                '${hotel['stars'] ?? 0}★',
+                                style: const TextStyle(
+                                    fontSize: 11, color: AppTheme.textMuted),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          '€${(hotel['pricePerNight'] as num?)?.toInt() ?? 0}/gece',
+                          style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.teal),
+                        ),
+                        GestureDetector(
+                          onTap: () async {
+                            final uri = Uri.parse(hotel['bookingUrl'] ?? bookingUrl);
+                            if (await canLaunchUrl(uri)) {
+                              await launchUrl(uri, mode: LaunchMode.inAppWebView);
+                            }
+                          },
+                          child: Container(
+                            margin: const EdgeInsets.only(top: 4),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: AppTheme.teal,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: const Text('Rezerve Et',
+                                style: TextStyle(
+                                    fontSize: 10,
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
+          ),
+        const SizedBox(height: 12),
+        GestureDetector(
+          onTap: () async {
+            final uri = Uri.parse(bookingUrl);
+            if (await canLaunchUrl(uri)) {
+              await launchUrl(uri, mode: LaunchMode.inAppWebView);
+            }
+          },
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            decoration: BoxDecoration(
+              color: AppTheme.teal.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppTheme.teal.withOpacity(0.3)),
+            ),
+            child: const Center(
+              child: Text('Tum Otelleri Goruntule',
+                  style: TextStyle(
+                      color: AppTheme.teal,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700)),
             ),
           ),
-        ],
-      ),
-    );
-  }
+        ),
+      ],
+    ),
+  );
+}
 
   Widget _buildRealFlights() {
     if (_loadingFlights) {
