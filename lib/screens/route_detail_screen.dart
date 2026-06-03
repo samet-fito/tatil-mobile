@@ -639,18 +639,30 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
 
   Widget _buildRealFlights() {
     if (_loadingFlights) {
-      return Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: AppTheme.bgSecondary,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppTheme.border),
+  return Container(
+    padding: const EdgeInsets.all(20),
+    decoration: BoxDecoration(
+      color: AppTheme.bgSecondary,
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: AppTheme.border),
+    ),
+    child: Column(
+      children: [
+        const CircularProgressIndicator(color: AppTheme.teal),
+        const SizedBox(height: 12),
+        const Text(
+          'Gercek ucus fiyatlari yukleniyor...',
+          style: TextStyle(fontSize: 12, color: AppTheme.textMuted),
         ),
-        child: const Center(
-          child: CircularProgressIndicator(color: AppTheme.teal),
+        const SizedBox(height: 4),
+        const Text(
+          'Ilk yuklemede 30 saniye surebilir',
+          style: TextStyle(fontSize: 11, color: AppTheme.textMuted),
         ),
-      );
-    }
+      ],
+    ),
+  );
+}
 
     if (_realFlights.isEmpty) return const SizedBox();
 
