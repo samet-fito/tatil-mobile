@@ -836,17 +836,17 @@ Future<void> _loadRealHotels() async {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(flight['airline'] ?? '--',
-                              style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppTheme.textPrimary)),
-                          Text(
-                            '${flight['stops'] == 0 ? 'Direkt' : '${flight['stops']} aktarma'} · ${flight['duration'] ?? '--'}',
-                            style: const TextStyle(
-                                fontSize: 11, color: AppTheme.textMuted),
-                          ),
-                        ],
+  Text(flight['airline'] ?? '--',
+      style: const TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          color: AppTheme.textPrimary)),
+  Text(
+    '${flight['stops'] == 0 ? "Direkt" : "${flight['stops']} aktarma"} · ${flight['duration'] ?? "--"} · Gidis-Donus',
+    style: const TextStyle(
+        fontSize: 11, color: AppTheme.textMuted),
+  ),
+],
                       ),
                     ),
                     Column(
