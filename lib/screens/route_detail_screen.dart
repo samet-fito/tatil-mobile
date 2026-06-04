@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import '../constants.dart';
 import 'chat_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/api_service.dart';
@@ -27,18 +30,28 @@ class RouteDetailScreen extends StatefulWidget {
 
 class _RouteDetailScreenState extends State<RouteDetailScreen> {
   bool _rentCarAdded = false;
-  List<Map<String, dynamic>> _realHotels = [];
-  bool _loadingHotels = true;
-  List<Map<String, dynamic>> _realFlights = [];
-  bool _loadingFlights = true;
-  bool _showBudgetTips = false;
+bool _showBudgetTips = false;
+
+List<Map<String, dynamic>> _realFlights = [];
+bool _loadingFlights = true;
+
+List<Map<String, dynamic>> _realHotels = [];
+bool _loadingHotels = true;
+
+List<Map<String, dynamic>> _realRestaurants = [];
+bool _loadingRestaurants = true;
+
+List<Map<String, dynamic>> _realActivities = [];
+bool _loadingActivities = true;
 
 
-  @override
+@override
 void initState() {
   super.initState();
   _loadRealFlights();
   _loadRealHotels();
+  _loadRealRestaurants();
+  _loadRealActivities();
 }
 
 Future<void> _loadRealHotels() async {
@@ -55,97 +68,69 @@ Future<void> _loadRealHotels() async {
     });
   }
 }
-  Future<void> _loadRealFlights() async {
-    final flights = await ApiService.searchRealFlights(
-      originIata: widget.originIata,
-      destinationIata: widget.route.destinationIata.isNotEmpty
-          ? widget.route.destinationIata
-          : 'AYT',
-      departureDate: widget.departureDate,
-      returnDate: widget.returnDate,
-      passengers: widget.route.passengers,
-    );
-    if (mounted) {
-      setState(() {
-        _realFlights = flights;
-        _loadingFlights = false;
-      });
-    }
+
+Future<void> _loadRealFlights() async {
+  final flights = await ApiService.searchRealFlights(
+    originIata: widget.originIata,
+    destinationIata: widget.route.destinationIata.isNotEmpty
+        ? widget.route.destinationIata
+        : 'AYT',
+    departureDate: widget.departureDate,
+    returnDate: widget.returnDate,
+    passengers: widget.route.passengers,
+  );
+  if (mounted) {
+    setState(() {
+      _realFlights = flights;
+      _loadingFlights = false;
+    });
   }
+}
+
+Future<void> _loadRealRestaurants() async {
+  try {
+    final response = await http.get(
+      Uri.parse('${AppConstants.baseUrl}/places/restaurants?cityName=${Uri.encodeComponent(widget.route.cityName)}'),
+    ).timeout(const Duration(seconds: 15));
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      if (data['success'] == true) {
+        if (mounted) {
+          setState(() {
+            _realRestaurants = List<Map<String, dynamic>>.from(data['data'] ?? []);
+            _loadingRestaurants = false;
+          });
+        }
+        return;
+      }
+    }
+  } catch (e) {}
+  if (mounted) setState(() => _loadingRestaurants = false);
+}
+
+Future<void> _loadRealActivities() async {
+  try {
+    final response = await http.get(
+      Uri.parse('${AppConstants.baseUrl}/places/activities?cityName=${Uri.encodeComponent(widget.route.cityName)}'),
+    ).timeout(const Duration(seconds: 15));
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      if (data['success'] == true) {
+        if (mounted) {
+          setState(() {
+            _realActivities = List<Map<String, dynamic>>.from(data['data'] ?? []);
+            _loadingActivities = false;
+          });
+        }
+        return;
+      }
+    }
+  } catch (e) {}
+  if (mounted) setState(() => _loadingActivities = false);
+}
 
   String _fmt(int price) {
     return '${price.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.')} TL';
-  }
-
-  List<Map<String, dynamic>> get _activities {
-    final city = widget.route.cityName;
-    final Map<String, List<Map<String, dynamic>>> data = {
-      'Antalya': [
-        {'time': '10:00', 'title': 'Havalimanina Inis', 'sub': 'VIP Transfer ile otele gecis', 'icon': CupertinoIcons.airplane, 'color': AppTheme.accent},
-        {'time': '12:00', 'title': 'Kaleici Turu', 'sub': 'Tarihi surlar ve Roma Limani', 'icon': CupertinoIcons.map_pin, 'color': AppTheme.teal},
-        {'time': '14:00', 'title': 'Otel Check-in', 'sub': widget.route.hotel?.name ?? 'Konaklama', 'icon': CupertinoIcons.house, 'color': const Color(0xFF8B5CF6)},
-        {'time': '16:00', 'title': 'Duden Selalesi', 'sub': 'Ucretsiz giris', 'icon': CupertinoIcons.drop, 'color': AppTheme.teal},
-        {'time': '19:00', 'title': 'Aksam Yemegi', 'sub': 'Vizegoo seçkisi - %10 indirimli', 'icon': CupertinoIcons.cart, 'color': AppTheme.accent},
-      ],
-      'Atina': [
-        {'time': '10:00', 'title': 'Havalimanina Inis', 'sub': 'Transfer ile otele gecis', 'icon': CupertinoIcons.airplane, 'color': AppTheme.accent},
-        {'time': '12:00', 'title': 'Akropolis Turu', 'sub': 'Dunya mirasi, 20 euro giris', 'icon': CupertinoIcons.map_pin, 'color': AppTheme.teal},
-        {'time': '14:00', 'title': 'Otel Check-in', 'sub': widget.route.hotel?.name ?? 'Konaklama', 'icon': CupertinoIcons.house, 'color': const Color(0xFF8B5CF6)},
-        {'time': '17:00', 'title': 'Monastiraki Carsisi', 'sub': 'Sokak lezzetleri', 'icon': CupertinoIcons.bag, 'color': AppTheme.teal},
-        {'time': '20:00', 'title': 'Aksam Yemegi', 'sub': 'Vizegoo seçkisi - %10 indirimli', 'icon': CupertinoIcons.cart, 'color': AppTheme.accent},
-      ],
-      'Budapeşte': [
-        {'time': '10:00', 'title': 'Havalimanina Inis', 'sub': 'Transfer ile otele gecis', 'icon': CupertinoIcons.airplane, 'color': AppTheme.accent},
-        {'time': '12:00', 'title': 'Parlamento Turu', 'sub': '15 euro giris', 'icon': CupertinoIcons.map_pin, 'color': AppTheme.teal},
-        {'time': '14:00', 'title': 'Otel Check-in', 'sub': widget.route.hotel?.name ?? 'Konaklama', 'icon': CupertinoIcons.house, 'color': const Color(0xFF8B5CF6)},
-        {'time': '16:00', 'title': 'Szechenyi Termal', 'sub': '25 euro', 'icon': CupertinoIcons.drop, 'color': AppTheme.teal},
-        {'time': '20:00', 'title': 'Ruin Bar Turu', 'sub': 'Gece deneyimi', 'icon': CupertinoIcons.star, 'color': AppTheme.accent},
-      ],
-      'Roma': [
-        {'time': '10:00', 'title': 'Havalimanina Inis', 'sub': 'Fiumicino transfer', 'icon': CupertinoIcons.airplane, 'color': AppTheme.accent},
-        {'time': '12:00', 'title': 'Kolezyum Turu', 'sub': '18 euro giris', 'icon': CupertinoIcons.map_pin, 'color': AppTheme.teal},
-        {'time': '14:00', 'title': 'Otel Check-in', 'sub': widget.route.hotel?.name ?? 'Konaklama', 'icon': CupertinoIcons.house, 'color': const Color(0xFF8B5CF6)},
-        {'time': '16:00', 'title': 'Trevi Cesmesi', 'sub': 'Ucretsiz', 'icon': CupertinoIcons.drop, 'color': AppTheme.teal},
-        {'time': '19:30', 'title': 'Aksam Yemegi', 'sub': 'Vizegoo seçkisi - %10 indirimli', 'icon': CupertinoIcons.cart, 'color': AppTheme.accent},
-      ],
-    };
-    return data[city] ?? data['Antalya']!;
-  }
-
-  Map<String, dynamic> get _rentCarData {
-    final Map<String, Map<String, dynamic>> data = {
-      'Antalya': {'taxiCost': 850, 'carCost': 450, 'carModel': 'Renault Clio', 'days': widget.route.nights},
-      'Atina': {'taxiCost': 1200, 'carCost': 680, 'carModel': 'Fiat Egea', 'days': widget.route.nights},
-      'Budapeşte': {'taxiCost': 950, 'carCost': 520, 'carModel': 'VW Polo', 'days': widget.route.nights},
-      'Roma': {'taxiCost': 1800, 'carCost': 950, 'carModel': 'Fiat 500', 'days': widget.route.nights},
-    };
-    return data[widget.route.cityName] ?? data['Antalya']!;
-  }
-
-  List<Map<String, dynamic>> get _restaurants {
-    final Map<String, List<Map<String, dynamic>>> data = {
-      'Antalya': [
-        {'name': 'Vanilla Lounge', 'type': 'Akdeniz Mutfagi', 'price': '€€', 'rating': 4.7, 'discount': true},
-        {'name': 'Parlak Restaurant', 'type': 'Turk Mutfagi', 'price': '€', 'rating': 4.5, 'discount': true},
-        {'name': 'Felice Cafe', 'type': 'Kahve & Brunch', 'price': '€€', 'rating': 4.6, 'discount': false},
-      ],
-      'Atina': [
-        {'name': 'Scholarhio', 'type': 'Yunan Mutfagi', 'price': '€€', 'rating': 4.8, 'discount': true},
-        {'name': 'Tzitzikas', 'type': 'Meze & Ouzo', 'price': '€€', 'rating': 4.6, 'discount': false},
-        {'name': 'Kostas Souvlaki', 'type': 'Sokak Yemegi', 'price': '€', 'rating': 4.9, 'discount': true},
-      ],
-      'Budapeşte': [
-        {'name': 'Mazel Tov', 'type': 'Fusion Mutfak', 'price': '€€€', 'rating': 4.7, 'discount': true},
-        {'name': 'Menza', 'type': 'Macar Mutfagi', 'price': '€€', 'rating': 4.5, 'discount': false},
-        {'name': 'Ruszwurm', 'type': 'Tarihi Pastane', 'price': '€', 'rating': 4.8, 'discount': false},
-      ],
-      'Roma': [
-        {'name': 'Da Enzo al 29', 'type': 'Otantik Roma', 'price': '€€', 'rating': 4.9, 'discount': true},
-        {'name': 'Suppli Roma', 'type': 'Sokak Yemegi', 'price': '€', 'rating': 4.7, 'discount': false},
-        {'name': 'Il Sorpasso', 'type': 'Aperitivo Bar', 'price': '€€', 'rating': 4.6, 'discount': true},
-      ],
-    };
-    return data[widget.route.cityName] ?? data['Antalya']!;
   }
 
   @override
@@ -157,38 +142,38 @@ Future<void> _loadRealHotels() async {
     return Scaffold(
       backgroundColor: AppTheme.bgPrimary,
       appBar: AppBar(
-  backgroundColor: AppTheme.bgPrimary,
-  elevation: 0,
-  leading: IconButton(
-    icon: const Icon(CupertinoIcons.arrow_left, color: AppTheme.textPrimary),
-    onPressed: () => Navigator.pop(context),
-  ),
-  title: Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Text(route.cityName,
-          style: const TextStyle(color: AppTheme.textPrimary, fontSize: 18, fontWeight: FontWeight.w700)),
-      Text('${route.country} · ${route.nights} gece',
-          style: const TextStyle(color: AppTheme.textMuted, fontSize: 12)),
-    ],
-  ),
-  actions: [
-    IconButton(
-      icon: const Icon(CupertinoIcons.chat_bubble, color: AppTheme.teal),
-      onPressed: () => Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (ctx) => ChatScreen(
-            cityName: route.cityName,
-            destinationIata: route.destinationIata,
-            sessionId: widget.originIata,
-            remainingBudget: route.estimatedCost.remaining.toDouble(),
-          ),
+        backgroundColor: AppTheme.bgPrimary,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(CupertinoIcons.arrow_left, color: AppTheme.textPrimary),
+          onPressed: () => Navigator.pop(context),
         ),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(route.cityName,
+                style: const TextStyle(color: AppTheme.textPrimary, fontSize: 18, fontWeight: FontWeight.w700)),
+            Text('${route.country} · ${route.nights} gece',
+                style: const TextStyle(color: AppTheme.textMuted, fontSize: 12)),
+          ],
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(CupertinoIcons.chat_bubble, color: AppTheme.teal),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (ctx) => ChatScreen(
+                  cityName: route.cityName,
+                  destinationIata: route.destinationIata,
+                  sessionId: widget.originIata,
+                  remainingBudget: route.estimatedCost.remaining.toDouble(),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
-    ),
-  ],
-),
       bottomNavigationBar: Container(
         height: 80,
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
@@ -938,6 +923,95 @@ Future<void> _loadRealHotels() async {
     );
   }
 
+  Map<String, dynamic> get _rentCarData {
+  final Map<String, Map<String, dynamic>> data = {
+    'Antalya': {'taxiCost': 850, 'carCost': 450, 'carModel': 'Renault Clio', 'days': widget.route.nights},
+    'Atina': {'taxiCost': 1200, 'carCost': 680, 'carModel': 'Fiat Egea', 'days': widget.route.nights},
+    'Budapeşte': {'taxiCost': 950, 'carCost': 520, 'carModel': 'VW Polo', 'days': widget.route.nights},
+    'Roma': {'taxiCost': 1800, 'carCost': 950, 'carModel': 'Fiat 500', 'days': widget.route.nights},
+  };
+  return data[widget.route.cityName] ?? data['Antalya']!;
+}
+
+List<Map<String, dynamic>> get _activities {
+  final city = widget.route.cityName;
+  final Map<String, List<Map<String, dynamic>>> data = {
+    'Antalya': [
+      {'time': '10:00', 'title': 'Havalimanina Inis', 'sub': 'VIP Transfer ile otele gecis', 'icon': CupertinoIcons.airplane, 'color': AppTheme.accent},
+      {'time': '12:00', 'title': 'Kaleici Turu', 'sub': 'Tarihi surlar ve Roma Limani', 'icon': CupertinoIcons.map_pin, 'color': AppTheme.teal},
+      {'time': '14:00', 'title': 'Otel Check-in', 'sub': widget.route.hotel?.name ?? 'Konaklama', 'icon': CupertinoIcons.house, 'color': const Color(0xFF8B5CF6)},
+      {'time': '16:00', 'title': 'Duden Selalesi', 'sub': 'Ucretsiz giris', 'icon': CupertinoIcons.drop, 'color': AppTheme.teal},
+      {'time': '19:00', 'title': 'Aksam Yemegi', 'sub': 'Vizegoo seçkisi - %10 indirimli', 'icon': CupertinoIcons.cart, 'color': AppTheme.accent},
+    ],
+    'Atina': [
+      {'time': '10:00', 'title': 'Havalimanina Inis', 'sub': 'Transfer ile otele gecis', 'icon': CupertinoIcons.airplane, 'color': AppTheme.accent},
+      {'time': '12:00', 'title': 'Akropolis Turu', 'sub': 'Dunya mirasi, 20 euro giris', 'icon': CupertinoIcons.map_pin, 'color': AppTheme.teal},
+      {'time': '14:00', 'title': 'Otel Check-in', 'sub': widget.route.hotel?.name ?? 'Konaklama', 'icon': CupertinoIcons.house, 'color': const Color(0xFF8B5CF6)},
+      {'time': '17:00', 'title': 'Monastiraki Carsisi', 'sub': 'Sokak lezzetleri', 'icon': CupertinoIcons.bag, 'color': AppTheme.teal},
+      {'time': '20:00', 'title': 'Aksam Yemegi', 'sub': 'Vizegoo seçkisi - %10 indirimli', 'icon': CupertinoIcons.cart, 'color': AppTheme.accent},
+    ],
+    'Budapeşte': [
+      {'time': '10:00', 'title': 'Havalimanina Inis', 'sub': 'Transfer ile otele gecis', 'icon': CupertinoIcons.airplane, 'color': AppTheme.accent},
+      {'time': '12:00', 'title': 'Parlamento Turu', 'sub': '15 euro giris', 'icon': CupertinoIcons.map_pin, 'color': AppTheme.teal},
+      {'time': '14:00', 'title': 'Otel Check-in', 'sub': widget.route.hotel?.name ?? 'Konaklama', 'icon': CupertinoIcons.house, 'color': const Color(0xFF8B5CF6)},
+      {'time': '16:00', 'title': 'Szechenyi Termal', 'sub': '25 euro', 'icon': CupertinoIcons.drop, 'color': AppTheme.teal},
+      {'time': '20:00', 'title': 'Ruin Bar Turu', 'sub': 'Gece deneyimi', 'icon': CupertinoIcons.star, 'color': AppTheme.accent},
+    ],
+    'Roma': [
+      {'time': '10:00', 'title': 'Havalimanina Inis', 'sub': 'Fiumicino transfer', 'icon': CupertinoIcons.airplane, 'color': AppTheme.accent},
+      {'time': '12:00', 'title': 'Kolezyum Turu', 'sub': '18 euro giris', 'icon': CupertinoIcons.map_pin, 'color': AppTheme.teal},
+      {'time': '14:00', 'title': 'Otel Check-in', 'sub': widget.route.hotel?.name ?? 'Konaklama', 'icon': CupertinoIcons.house, 'color': const Color(0xFF8B5CF6)},
+      {'time': '16:00', 'title': 'Trevi Cesmesi', 'sub': 'Ucretsiz', 'icon': CupertinoIcons.drop, 'color': AppTheme.teal},
+      {'time': '19:30', 'title': 'Aksam Yemegi', 'sub': 'Vizegoo seçkisi - %10 indirimli', 'icon': CupertinoIcons.cart, 'color': AppTheme.accent},
+    ],
+  };
+  return data[city] ?? data['Antalya']!;
+}
+
+List<Map<String, dynamic>> get _restaurants {
+  if (_realRestaurants.isNotEmpty) {
+    return _realRestaurants.take(3).map((r) => {
+      'name': r['name'] ?? '--',
+      'type': r['types']?.isNotEmpty == true ? r['types'][0] : 'Restoran',
+      'price': _priceLevelToSymbol(r['priceLevel'] ?? ''),
+      'rating': r['rating'] ?? 0.0,
+      'discount': false,
+    }).toList();
+  }
+  final Map<String, List<Map<String, dynamic>>> data = {
+    'Antalya': [
+      {'name': 'Vanilla Lounge', 'type': 'Akdeniz Mutfagi', 'price': '€€', 'rating': 4.7, 'discount': true},
+      {'name': 'Parlak Restaurant', 'type': 'Turk Mutfagi', 'price': '€', 'rating': 4.5, 'discount': true},
+      {'name': 'Felice Cafe', 'type': 'Kahve & Brunch', 'price': '€€', 'rating': 4.6, 'discount': false},
+    ],
+    'Atina': [
+      {'name': 'Scholarhio', 'type': 'Yunan Mutfagi', 'price': '€€', 'rating': 4.8, 'discount': true},
+      {'name': 'Tzitzikas', 'type': 'Meze & Ouzo', 'price': '€€', 'rating': 4.6, 'discount': false},
+      {'name': 'Kostas Souvlaki', 'type': 'Sokak Yemegi', 'price': '€', 'rating': 4.9, 'discount': true},
+    ],
+    'Budapeşte': [
+      {'name': 'Mazel Tov', 'type': 'Fusion Mutfak', 'price': '€€€', 'rating': 4.7, 'discount': true},
+      {'name': 'Menza', 'type': 'Macar Mutfagi', 'price': '€€', 'rating': 4.5, 'discount': false},
+      {'name': 'Ruszwurm', 'type': 'Tarihi Pastane', 'price': '€', 'rating': 4.8, 'discount': false},
+    ],
+    'Roma': [
+      {'name': 'Da Enzo al 29', 'type': 'Otantik Roma', 'price': '€€', 'rating': 4.9, 'discount': true},
+      {'name': 'Suppli Roma', 'type': 'Sokak Yemegi', 'price': '€', 'rating': 4.7, 'discount': false},
+      {'name': 'Il Sorpasso', 'type': 'Aperitivo Bar', 'price': '€€', 'rating': 4.6, 'discount': true},
+    ],
+  };
+  return data[widget.route.cityName] ?? data['Antalya']!;
+}
+
+String _priceLevelToSymbol(String level) {
+  switch (level) {
+    case 'PRICE_LEVEL_INEXPENSIVE': return '€';
+    case 'PRICE_LEVEL_MODERATE': return '€€';
+    case 'PRICE_LEVEL_EXPENSIVE': return '€€€';
+    case 'PRICE_LEVEL_VERY_EXPENSIVE': return '€€€€';
+    default: return '€€';
+  }
+}
   Widget _buildSectionTitle(String title) {
     return Text(title,
         style: const TextStyle(
