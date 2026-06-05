@@ -628,6 +628,7 @@ static Future<List<Map<String, dynamic>>> searchHotels({
   try {
     final checkInStr = checkIn.toIso8601String().split('T')[0];
     final checkOutStr = returnDate.toIso8601String().split('T')[0];
+    print("HOTEL: $cityName $checkInStr");
     final response = await http.get(
       Uri.parse(
         '${AppConstants.baseUrl}/hotels-search/search?cityName=${Uri.encodeComponent(cityName)}&checkIn=$checkInStr&checkOut=$checkOutStr&adults=$adults',
