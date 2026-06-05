@@ -4,6 +4,7 @@ class RouteResultModel {
   final String country;
   final int nights;
   final int passengers;
+  final int children;
   final double score;
   final bool isAffordable;
   final RouteFlightModel? flight;
@@ -19,6 +20,7 @@ class RouteResultModel {
     required this.country,
     required this.nights,
     required this.passengers,
+    this.children = 0,
     required this.score,
     required this.isAffordable,
     this.flight,
@@ -40,7 +42,8 @@ class RouteResultModel {
         cityName: json['city_name'] ?? '',
         country: json['country'] ?? '',
         nights: json['nights'] ?? 0,
-        passengers: json['passengers'] ?? 1,
+        passengers: json["passengers"] ?? 1,
+        children: json["children"] ?? 0,
         score: (json['score'] ?? 0).toDouble(),
         isAffordable: json['is_affordable'] ?? false,
         flight: json['flight'] != null

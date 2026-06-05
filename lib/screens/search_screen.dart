@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import '../services/api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -499,41 +500,95 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   Widget _buildPassengerSelector() {
-    return _section(
-      label: 'Kaç kişi?',
-      child: Row(
-        children: [1, 2, 3, 4].map((n) {
-          final isSelected = _model.passengers == n;
-          return Expanded(
-            child: Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: GestureDetector(
-                onTap: () => setState(() => _model = _model.copyWith(passengers: n)),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: isSelected ? AppTheme.accent : AppTheme.bgSecondary,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: isSelected ? AppTheme.accent : AppTheme.border,
-                    ),
-                  ),
-                  child: Center(
-                    child: Text('$n kişi',
-                        style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: isSelected ? Colors.white : AppTheme.textMuted)),
-                  ),
-                ),
+  return _section(
+    label: 'Kac kisi?',
+    child: Column(
+      children: [
+        // Yetişkin
+        Row(
+          children: [
+            const Icon(CupertinoIcons.person, color: AppTheme.textMuted, size: 16),
+            const SizedBox(width: 8),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Yetiskin', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
+                  Text('12 yas ve uzeri', style: TextStyle(fontSize: 11, color: AppTheme.textMuted)),
+                ],
               ),
             ),
-          );
-        }).toList(),
+            _counterWidget(
+              value: _model.passengers,
+              min: 1,
+              max: 9,
+              onChanged: (val) => setState(() => _model = _model.copyWith(passengers: val)),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        // Çocuk
+        Row(
+          children: [
+            const Icon(CupertinoIcons.person_2, color: AppTheme.textMuted, size: 16),
+            const SizedBox(width: 8),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Cocuk', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
+                  Text('2-11 yas arasi (%50 indirimli)', style: TextStyle(fontSize: 11, color: AppTheme.textMuted)),
+                ],
+              ),
+            ),
+            _counterWidget(
+              value: _model.children,
+              min: 0,
+              max: 6,
+              onChanged: (val) => setState(() => _model = _model.copyWith(children: val)),
+            ),
+          ],
+        ),
+      ],
+    ),
+  );
+}
+
+Widget _counterWidget({required int value, required int min, required int max, required Function(int) onChanged}) {
+  return Row(
+    children: [
+      GestureDetector(
+        onTap: value > min ? () => onChanged(value - 1) : null,
+        child: Container(
+          width: 32, height: 32,
+          decoration: BoxDecoration(
+            color: value > min ? AppTheme.accent.withOpacity(0.1) : AppTheme.bgTertiary,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: value > min ? AppTheme.accent.withOpacity(0.3) : AppTheme.border),
+          ),
+          child: Icon(CupertinoIcons.minus, size: 14, color: value > min ? AppTheme.accent : AppTheme.textMuted),
+        ),
       ),
-    );
-  }
+      Container(
+        width: 36,
+        alignment: Alignment.center,
+        child: Text('$value', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
+      ),
+      GestureDetector(
+        onTap: value < max ? () => onChanged(value + 1) : null,
+        child: Container(
+          width: 32, height: 32,
+          decoration: BoxDecoration(
+            color: value < max ? AppTheme.accent.withOpacity(0.1) : AppTheme.bgTertiary,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: value < max ? AppTheme.accent.withOpacity(0.3) : AppTheme.border),
+          ),
+          child: Icon(CupertinoIcons.plus, size: 14, color: value < max ? AppTheme.accent : AppTheme.textMuted),
+        ),
+      ),
+    ],
+  );
+}
 
   Widget _buildBudgetSlider() {
     final maxBudget = _isMedicalMode ? 500000.0 : 200000.0;

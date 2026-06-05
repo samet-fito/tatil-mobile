@@ -1,3 +1,4 @@
+import 'checkout_screen.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../constants.dart';
@@ -13,6 +14,8 @@ import '../widgets/checkout_auth_sheet.dart';
 class RouteDetailScreen extends StatefulWidget {
   final RouteResultModel route;
   final String originIata;
+  final int children;
+  final int totalPassengers;
   final DateTime departureDate;
   final DateTime returnDate;
 
@@ -20,6 +23,8 @@ class RouteDetailScreen extends StatefulWidget {
     super.key,
     required this.route,
     required this.originIata,
+    this.children = 0,
+    this.totalPassengers = 1,
     required this.departureDate,
     required this.returnDate,
   });
@@ -200,12 +205,31 @@ Future<void> _loadRealActivities() async {
             const SizedBox(width: 16),
             Expanded(
               child: GestureDetector(
-                onTap: () => CheckoutAuthSheet.show(
-                  context,
-                  cityName: route.cityName,
-                  totalPrice: route.estimatedCost.total,
-                  onSuccess: () {},
-                ),
+               onTap: () {
+  if (_loadingFlights || _loadingHotels) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Ucus ve otel bilgileri yukleniyor, lutfen bekleyin...'),
+        backgroundColor: AppTheme.teal,
+      ),
+    );
+    return;
+  }
+  Navigator.push(
+    context,
+    MaterialPageRoute(
+     builder: (ctx) => CheckoutScreen(
+  route: widget.route,
+  flights: _realFlights,
+  hotels: _realHotels,
+        departureDate: widget.departureDate,
+        returnDate: widget.returnDate,
+        children: widget.children,
+        adults: widget.totalPassengers,
+      ),
+    ),
+  );
+},
                 child: Container(
                   height: 48,
                   decoration: BoxDecoration(

@@ -7,6 +7,7 @@ class SearchModel {
   DateTime returnDate;
   double totalBudgetTL;
   int passengers;
+  int children = 0;
 
   SearchModel({
     this.originIata = 'IST',
@@ -17,6 +18,7 @@ class SearchModel {
     DateTime? returnDate,
     this.totalBudgetTL = 30000,
     this.passengers = 1,
+    this.children = 0,
   })  : departureDate = departureDate ?? DateTime.now().add(const Duration(days: 30)),
         returnDate = returnDate ?? DateTime.now().add(const Duration(days: 35));
 
@@ -45,6 +47,7 @@ class SearchModel {
         'returnDate': returnDate.toIso8601String().split('T')[0],
         'totalBudgetTL': totalBudgetTL,
         'passengers': passengers,
+        'children': children,
         if (continent != null) 'continent': continent,
         if (holidayType != null) 'holidayType': holidayType,
       };
@@ -58,6 +61,7 @@ class SearchModel {
     DateTime? returnDate,
     double? totalBudgetTL,
     int? passengers,
+    int? children,
   }) {
     return SearchModel(
       originIata: originIata ?? this.originIata,
@@ -68,6 +72,7 @@ class SearchModel {
       returnDate: returnDate ?? this.returnDate,
       totalBudgetTL: totalBudgetTL ?? this.totalBudgetTL,
       passengers: passengers ?? this.passengers,
+      children: children ?? this.children,
     );
   }
 }
