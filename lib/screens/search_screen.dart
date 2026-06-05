@@ -537,7 +537,7 @@ class _SearchScreenState extends State<SearchScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text('Cocuk', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
-                  Text('2-11 yas arasi (%50 indirimli)', style: TextStyle(fontSize: 11, color: AppTheme.textMuted)),
+                 Text('2-11 yas arasi', style: TextStyle(fontSize: 11, color: AppTheme.textMuted)),
                 ],
               ),
             ),

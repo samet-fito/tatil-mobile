@@ -529,7 +529,6 @@ void initState() {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(color: AppTheme.teal.withOpacity(0.1), borderRadius: BorderRadius.circular(99)),
-                  child: const Text('%50 Indirimli', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.teal)),
                 ),
               ]),
               const SizedBox(height: 12),
