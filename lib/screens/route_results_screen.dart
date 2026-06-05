@@ -268,6 +268,8 @@ class _RouteResultsScreenState extends State<RouteResultsScreen> {
                 return RouteResultCard(
                   route: _routes[index],
                   rank: index + 1,
+                  departureDate: widget.searchModel.departureDate,
+returnDate: widget.searchModel.returnDate,
                   onTap: () {
                     Navigator.push(
                       context,
@@ -277,8 +279,6 @@ class _RouteResultsScreenState extends State<RouteResultsScreen> {
                           originIata: widget.searchModel.originIata,
                           departureDate: widget.searchModel.departureDate,
                           returnDate: widget.searchModel.returnDate,
-                          children: widget.searchModel.children,
-                          totalPassengers: widget.searchModel.passengers,
                         ),
                       ),
                     );

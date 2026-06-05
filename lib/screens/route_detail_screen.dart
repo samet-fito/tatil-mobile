@@ -906,12 +906,15 @@ Future<void> _loadRealActivities() async {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(children: [
-                      Text(r['name'] as String,
-                          style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: AppTheme.textPrimary)),
-                      const SizedBox(width: 6),
+  Flexible(
+    child: Text(r['name'] as String,
+        style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: AppTheme.textPrimary,
+            overflow: TextOverflow.ellipsis)),
+  ),
+  const SizedBox(width: 6),
                       if (r['discount'] == true)
                         Container(
                           padding: const EdgeInsets.symmetric(

@@ -11,14 +11,23 @@ class RouteResultCard extends StatelessWidget {
   final RouteResultModel route;
   final int rank;
   final VoidCallback onTap;
+  final DateTime? departureDate;
+  final DateTime? returnDate;
 
   const RouteResultCard({
     super.key,
     required this.route,
     required this.rank,
     required this.onTap,
+    this.departureDate,
+    this.returnDate,
   });
 
+  String _monthName(int month) {
+  const months = ['', 'Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz',
+      'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
+  return months[month];
+}
   String _fmt(int price) {
     return '${price.toString().replaceAllMapped(
           RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
@@ -162,13 +171,31 @@ class RouteResultCard extends StatelessWidget {
                       letterSpacing: -0.5,
                     ),
                   ),
-                  if (landmark.isNotEmpty)
+                  
+                   if (landmark.isNotEmpty)
                     Text(
                       landmark,
                       style: TextStyle(
                         color: Colors.white.withOpacity(0.65),
                         fontSize: 12,
                         fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                  if (departureDate != null && returnDate != null)
+                    Container(
+                      margin: const EdgeInsets.only(top: 6),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.4),
+                        borderRadius: BorderRadius.circular(99),
+                      ),
+                      child: Text(
+                        '${departureDate!.day} ${_monthName(departureDate!.month)} - ${returnDate!.day} ${_monthName(returnDate!.month)} · ${route.nights} gece',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ),
                 ],
