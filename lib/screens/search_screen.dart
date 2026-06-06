@@ -43,12 +43,18 @@ class _SearchScreenState extends State<SearchScreen> {
   ];
 
   final List<Map<String, dynamic>> _holidayTypes = [
-    {'value': null, 'label': 'Hepsi', 'emoji': '✨'},
-    {'value': 'beach', 'label': 'Deniz', 'emoji': '🏖️'},
-    {'value': 'culture', 'label': 'Kültür', 'emoji': '🏛️'},
-    {'value': 'nature', 'label': 'Doğa', 'emoji': '🌿'},
-    {'value': 'city', 'label': 'Şehir', 'emoji': '🏙️'},
-  ];
+  {'value': null, 'label': 'Hepsi', 'emoji': '✨'},
+  {'value': 'beach', 'label': 'Deniz', 'emoji': '🏖️'},
+  {'value': 'culture', 'label': 'Kültür', 'emoji': '🏛️'},
+  {'value': 'nature', 'label': 'Doğa', 'emoji': '🌿'},
+  {'value': 'city', 'label': 'Şehir', 'emoji': '🏙️'},
+  {'value': 'budget', 'label': 'Ucuz Tatil', 'emoji': '💸'},
+  {'value': 'luxury', 'label': 'Lüks Tatil', 'emoji': '👑'},
+  {'value': 'family', 'label': 'Aile', 'emoji': '👨‍👩‍👧'},
+  {'value': 'adventure', 'label': 'Macera', 'emoji': '🧗'},
+  {'value': 'romantic', 'label': 'Romantik', 'emoji': '💑'},
+  {'value': 'wellness', 'label': 'Sağlık & Spa', 'emoji': '🧘'},
+];
 
   String? _selectedContinent;
   String? _selectedHolidayType;
