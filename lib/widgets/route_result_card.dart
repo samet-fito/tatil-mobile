@@ -1,4 +1,3 @@
-import '../screens/route_detail_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -24,10 +23,11 @@ class RouteResultCard extends StatelessWidget {
   });
 
   String _monthName(int month) {
-  const months = ['', 'Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz',
-      'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
-  return months[month];
-}
+    const months = ['', 'Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz',
+        'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
+    return months[month];
+  }
+
   String _fmt(int price) {
     return '${price.toString().replaceAllMapped(
           RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
@@ -59,9 +59,6 @@ class RouteResultCard extends StatelessWidget {
     );
   }
 
-  // ============================================================
-  // HERO GÖRSEL
-  // ============================================================
   Widget _buildHeroImage() {
     final imageUrl = CityImages.getImage(route.destinationIata);
     final landmark = CityImages.getLandmark(route.destinationIata);
@@ -74,7 +71,6 @@ class RouteResultCard extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            // Şehir görseli
             CachedNetworkImage(
               imageUrl: imageUrl,
               fit: BoxFit.cover,
@@ -89,8 +85,6 @@ class RouteResultCard extends StatelessWidget {
                     color: AppTheme.textMuted, size: 32),
               ),
             ),
-
-            // Gradient overlay
             Container(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
@@ -105,15 +99,12 @@ class RouteResultCard extends StatelessWidget {
                 ),
               ),
             ),
-
-            // En iyi seçim rozeti
             if (route.isBestChoice)
               Positioned(
                 top: 14,
                 right: 14,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
                     color: AppTheme.accent,
                     borderRadius: BorderRadius.circular(99),
@@ -129,19 +120,16 @@ class RouteResultCard extends StatelessWidget {
                   ),
                 ),
               ),
-
             // Skor
             Positioned(
               top: 14,
               left: 14,
               child: Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
                   color: AppTheme.bgPrimary.withOpacity(0.7),
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                      color: Colors.white.withOpacity(0.1)),
+                  border: Border.all(color: Colors.white.withOpacity(0.1)),
                 ),
                 child: Text(
                   '${route.score.toInt()}',
@@ -153,7 +141,27 @@ class RouteResultCard extends StatelessWidget {
                 ),
               ),
             ),
-
+            // Vibe Badge
+            if (route.vibeBadge.isNotEmpty)
+              Positioned(
+                top: 48,
+                left: 14,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppTheme.teal.withOpacity(0.85),
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                  child: Text(
+                    route.vibeBadge,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
             // Şehir adı ve landmark
             Positioned(
               left: 16,
@@ -171,8 +179,7 @@ class RouteResultCard extends StatelessWidget {
                       letterSpacing: -0.5,
                     ),
                   ),
-                  
-                   if (landmark.isNotEmpty)
+                  if (landmark.isNotEmpty)
                     Text(
                       landmark,
                       style: TextStyle(
@@ -183,8 +190,8 @@ class RouteResultCard extends StatelessWidget {
                     ),
                   if (departureDate != null && returnDate != null)
                     Container(
-                      margin: const EdgeInsets.only(top: 6),
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      margin: const EdgeInsets.only(top: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
                         color: Colors.black.withOpacity(0.4),
                         borderRadius: BorderRadius.circular(99),
@@ -193,7 +200,7 @@ class RouteResultCard extends StatelessWidget {
                         '${departureDate!.day} ${_monthName(departureDate!.month)} - ${returnDate!.day} ${_monthName(returnDate!.month)} · ${route.nights} gece',
                         style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 11,
+                          fontSize: 10,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -207,9 +214,6 @@ class RouteResultCard extends StatelessWidget {
     );
   }
 
-  // ============================================================
-  // KART GÖVDE
-  // ============================================================
   Widget _buildBody() {
     return Padding(
       padding: const EdgeInsets.all(16),
@@ -239,8 +243,6 @@ class RouteResultCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 14),
-
-          // Bütçe barları
           _budgetBar(
             icon: CupertinoIcons.airplane,
             label: 'Uçuş',
@@ -272,11 +274,38 @@ class RouteResultCard extends StatelessWidget {
             amount: route.estimatedCost.pocketMoney,
             color: const Color(0xFF6366F1),
           ),
-
           const SizedBox(height: 14),
           Divider(color: AppTheme.border, height: 1),
-          const SizedBox(height: 14),
-
+          const SizedBox(height: 10),
+          // Match Percentage
+          if (route.matchPercentage > 0)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: AppTheme.accent.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(99),
+                  border: Border.all(color: AppTheme.accent.withOpacity(0.3)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(CupertinoIcons.checkmark_seal_fill,
+                        color: AppTheme.accent, size: 12),
+                    const SizedBox(width: 4),
+                    Text(
+                      '%${route.matchPercentage} Eslesme',
+                      style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.accent),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           // Toplam & buton
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -286,10 +315,8 @@ class RouteResultCard extends StatelessWidget {
                 children: [
                   Text(
                     'Tahmini Toplam',
-                    style: TextStyle(
-                        fontSize: 11,
-                        color: AppTheme.textMuted),
-   ),
+                    style: TextStyle(fontSize: 11, color: AppTheme.textMuted),
+                  ),
                   const SizedBox(height: 2),
                   Text(
                     _fmt(route.estimatedCost.total),
@@ -307,8 +334,7 @@ class RouteResultCard extends StatelessWidget {
                 children: [
                   if (route.isAffordable)
                     Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 5),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                       decoration: BoxDecoration(
                         color: AppTheme.teal.withOpacity(0.12),
                         borderRadius: BorderRadius.circular(99),
@@ -326,8 +352,7 @@ class RouteResultCard extends StatelessWidget {
                   GestureDetector(
                     onTap: onTap,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 18, vertical: 10),
+                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
                       decoration: BoxDecoration(
                         color: route.isAffordable
                             ? AppTheme.accent
@@ -351,30 +376,21 @@ class RouteResultCard extends StatelessWidget {
         ],
       ),
     );
-  }               
+  }
 
-  // ============================================================
-  // AKILLI ÖNERİ
-  // ============================================================
   Widget _buildSuggestion() {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
       decoration: BoxDecoration(
         color: const Color(0xFF2A1F0E),
-        borderRadius:
-            const BorderRadius.vertical(bottom: Radius.circular(20)),
-        border: Border(
-          top: BorderSide(color: AppTheme.border),
-        ),
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(20)),
+        border: Border(top: BorderSide(color: AppTheme.border)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            Icons.lightbulb_outline_rounded,
-            size: 16,
-            color: const Color(0xFFF59E0B),
-          ),
+          const Icon(Icons.lightbulb_outline_rounded,
+              size: 16, color: Color(0xFFF59E0B)),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
@@ -392,9 +408,6 @@ class RouteResultCard extends StatelessWidget {
     );
   }
 
-  // ============================================================
-  // YARDIMCI WİDGET'LAR
-  // ============================================================
   Widget _infoTile({
     required IconData icon,
     required String label,
@@ -425,8 +438,7 @@ class RouteResultCard extends StatelessWidget {
                 ),
                 Text(
                   sub,
-                  style: const TextStyle(
-                      fontSize: 11, color: AppTheme.textMuted),
+                  style: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
                   overflow: TextOverflow.ellipsis,
                 ),
               ],
@@ -437,23 +449,21 @@ class RouteResultCard extends StatelessWidget {
     );
   }
 
-  Widget _budgetBar(
-      {required IconData icon,
-      required String label,
-      required int percentage,
-      required int amount,
-      required Color color}) {
+  Widget _budgetBar({
+    required IconData icon,
+    required String label,
+    required int percentage,
+    required int amount,
+    required Color color,
+  }) {
     return Row(
       children: [
         Icon(icon, size: 14, color: AppTheme.textMuted),
         const SizedBox(width: 6),
         SizedBox(
           width: 52,
-          child: Text(
-            label,
-            style: const TextStyle(
-                fontSize: 11, color: AppTheme.textMuted),
-          ),
+          child: Text(label,
+              style: const TextStyle(fontSize: 11, color: AppTheme.textMuted)),
         ),
         Expanded(
           child: ClipRRect(

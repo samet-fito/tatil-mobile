@@ -43,6 +43,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 @override
 void initState() {
     super.initState();
+    print("CHECKOUT: adults=${widget.adults} children=${widget.children}");
     _passengerControllers = List.generate(
       widget.adults + widget.children,
       (_) => {

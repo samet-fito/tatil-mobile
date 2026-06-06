@@ -13,6 +13,8 @@ class RouteResultModel {
   final RouteBudgetBreakdown budgetBreakdown;
   final RouteEstimatedCost estimatedCost;
   final String? alternativeSuggestion;
+  final int matchPercentage;
+  final String vibeBadge;
 
   RouteResultModel({
     required this.destinationIata,
@@ -29,6 +31,8 @@ class RouteResultModel {
     required this.budgetBreakdown,
     required this.estimatedCost,
     this.alternativeSuggestion,
+    this.matchPercentage = 0,
+    this.vibeBadge = '',
   });
 
   bool get isBestChoice => score >= 95;
@@ -60,6 +64,8 @@ class RouteResultModel {
         estimatedCost: RouteEstimatedCost.fromJson(
             json['estimated_cost'] ?? {}),
         alternativeSuggestion: json['alternative_suggestion'],
+        matchPercentage: json['match_percentage'] ?? 0,
+vibeBadge: json['vibe_badge'] ?? '',
       );
     }
 
