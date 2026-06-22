@@ -1,52 +1,62 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+/// Proje geneli turuncu tema — login ve ana sayfa ile uyumlu.
 class AppTheme {
-  // ============================================================
-  // RENK PALETİ
-  // ============================================================
-  static const Color bgPrimary = Color(0xFF0B0F19);      // Derin Gece Mavisi
-  static const Color bgSecondary = Color(0xFF161C2A);    // Kart/Panel arkaplanı
-  static const Color bgTertiary = Color(0xFF1E2640);     // Yükseltilmiş yüzeyler
-  static const Color accent = Color(0xFFFF5A5F);         // Canlı Mercan
-  static const Color accentLight = Color(0x1AFF5A5F);    // Mercan %10 opaklık
-  static const Color teal = Color(0xFF00B4D8);           // Sağlık/Klinik rengi
-  static const Color tealLight = Color(0x1A00B4D8);      // Teal %10 opaklık
-  static const Color health = Color(0xFF00B4D8);         // Sağlık rengi (teal)
-  static const Color healthLight = Color(0x1A00B4D8);
+  AppTheme._();
 
-  // Metin renkleri
-  static const Color textPrimary = Color(0xFFF0F4FF);    // Beyazımsı
-  static const Color textSecondary = Color(0xFFB0BAD0);  // Soluk mavi-beyaz
-  static const Color textMuted = Color(0xFF6B7A99);      // Soluk
+  // Turuncu palet
+  static const Color orange = Color(0xFFFF6600);
+  static const Color orangeLight = Color(0xFFFF7710);
+  static const Color orangeSoft = Color(0xFFFFF0E6);
 
-  // Eski uyumluluk için
-  static const Color primary = bgPrimary;
+  // Yüzeyler
+  static const Color bgPrimary = Color(0xFFFFF8F4);
+  static const Color bgSecondary = Color(0xFFFFFFFF);
+  static const Color bgTertiary = Color(0xFFF9F9F9);
+
+  // Yükleme ekranı (koyu)
+  static const Color loadingBg = Color(0xFF0B0F19);
+  static const Color loadingGlobe = Color(0xFF151B2B);
+  static const Color loadingContinent = Color(0xFF243044);
+  static const Color loadingText = Color(0xFFF3F4F6);
+  static const Color loadingMuted = Color(0xFF9CA3AF);
+
+  // Vurgu (accent = turuncu)
+  static const Color accent = orange;
+  static const Color accentLight = orangeSoft;
+
+  // Sağlık modu
+  static const Color teal = Color(0xFF00A896);
+  static const Color tealLight = Color(0x1A00A896);
+  static const Color health = teal;
+  static const Color healthLight = tealLight;
+
+  // Metin
+  static const Color textPrimary = Color(0xFF1A1A1A);
+  static const Color textSecondary = Color(0xFF4B5563);
+  static const Color textMuted = Color(0xFF6B7280);
+
+  // Uyumluluk
+  static const Color primary = orange;
   static const Color background = bgPrimary;
   static const Color cardBg = bgSecondary;
-  static const Color border = Color(0xFF252D42);
+  static const Color border = Color(0xFFE8E8E8);
 
-  // ============================================================
-  // TEMA
-  // ============================================================
   static ThemeData get lightTheme {
     return ThemeData(
       useMaterial3: true,
-      brightness: Brightness.dark,
-      colorScheme: const ColorScheme.dark(
-        primary: accent,
+      brightness: Brightness.light,
+      colorScheme: ColorScheme.light(
+        primary: orange,
         secondary: teal,
         surface: bgSecondary,
-        background: bgPrimary,
         onPrimary: Colors.white,
         onSecondary: Colors.white,
         onSurface: textPrimary,
-        onBackground: textPrimary,
       ),
       scaffoldBackgroundColor: bgPrimary,
-      textTheme: GoogleFonts.interTextTheme(
-        ThemeData.dark().textTheme,
-      ).apply(
+      textTheme: GoogleFonts.interTextTheme(ThemeData.light().textTheme).apply(
         bodyColor: textPrimary,
         displayColor: textPrimary,
       ),
@@ -54,39 +64,45 @@ class AppTheme {
         backgroundColor: bgPrimary,
         foregroundColor: textPrimary,
         elevation: 0,
+        scrolledUnderElevation: 0,
         centerTitle: false,
         titleTextStyle: GoogleFonts.inter(
           color: textPrimary,
           fontSize: 18,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w700,
         ),
+        iconTheme: const IconThemeData(color: textPrimary),
       ),
       cardTheme: CardThemeData(
         color: bgSecondary,
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: border, width: 0.5),
+          side: const BorderSide(color: border),
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: accent,
+          backgroundColor: orange,
           foregroundColor: Colors.white,
           elevation: 0,
           padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          textStyle: GoogleFonts.inter(
-            fontSize: 15,
-            fontWeight: FontWeight.w700,
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          textStyle: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w700),
         ),
+      ),
+      checkboxTheme: CheckboxThemeData(
+        fillColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) return orange;
+          return Colors.white;
+        }),
+        checkColor: WidgetStateProperty.all(Colors.white),
+        side: const BorderSide(color: orange, width: 2),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: bgSecondary,
+        fillColor: bgTertiary,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: border),
@@ -97,25 +113,17 @@ class AppTheme {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: accent, width: 1.5),
+          borderSide: const BorderSide(color: orange, width: 1.5),
         ),
         hintStyle: const TextStyle(color: textMuted),
         labelStyle: const TextStyle(color: textSecondary),
       ),
       dividerColor: border,
-      switchTheme: SwitchThemeData(
-        thumbColor: MaterialStateProperty.resolveWith((states) =>
-            states.contains(MaterialState.selected) ? accent : textMuted),
-        trackColor: MaterialStateProperty.resolveWith((states) =>
-            states.contains(MaterialState.selected)
-                ? accentLight
-                : bgTertiary),
-      ),
       sliderTheme: SliderThemeData(
-        activeTrackColor: accent,
-        inactiveTrackColor: bgTertiary,
-        thumbColor: accent,
-        overlayColor: accentLight,
+        activeTrackColor: orange,
+        inactiveTrackColor: orangeSoft,
+        thumbColor: orange,
+        overlayColor: orangeSoft,
         trackHeight: 4,
         thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10),
       ),
@@ -125,20 +133,17 @@ class AppTheme {
           borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
       ),
-     dialogTheme: DialogThemeData(
+      dialogTheme: DialogThemeData(
         backgroundColor: bgSecondary,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       ),
       snackBarTheme: SnackBarThemeData(
-        backgroundColor: bgTertiary,
-        contentTextStyle: const TextStyle(color: textPrimary),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        backgroundColor: textPrimary,
+        contentTextStyle: const TextStyle(color: Colors.white),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         behavior: SnackBarBehavior.floating,
       ),
+      progressIndicatorTheme: const ProgressIndicatorThemeData(color: orange),
     );
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/admin_service.dart';
 import '../theme/app_theme.dart';
+import '../theme/custom_page_route.dart';
 import 'admin_treatments_screen.dart';
 
 class AdminClinicsScreen extends StatefulWidget {
@@ -221,13 +222,11 @@ class _AdminClinicsScreenState extends State<AdminClinicsScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 TextButton.icon(
-                  onPressed: () => Navigator.push(
+                  onPressed: () => pushAppRoute(
                     context,
-                    MaterialPageRoute(
-                      builder: (ctx) => AdminTreatmentsScreen(
-                        clinicId: clinic['id'],
-                        clinicName: clinic['name'],
-                      ),
+                    AdminTreatmentsScreen(
+                      clinicId: clinic['id'],
+                      clinicName: clinic['name'],
                     ),
                   ),
                   icon: const Icon(Icons.medical_services, size: 16),

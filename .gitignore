@@ -43,3 +43,18 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Cursor IDE (local MCP / agent config)
+.cursor/
+
+# Secrets & local env (never commit)
+scripts/.env.supabase.local
+scripts/.env.supabase.local.*
+!scripts/.env.supabase.local.example
+.env
+.env.*
+!.env.example
+*.p8
+*.pem
+**/credentials.json
+**/secrets.json

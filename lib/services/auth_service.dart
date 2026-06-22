@@ -1,61 +1,114 @@
+import 'dart:async';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'travel_booking_service.dart';
 
 class AuthService {
   static final _supabase = Supabase.instance.client;
   static bool _isGuest = false;
 
+  static const oauthRedirectUrl = 'io.supabase.tatilbulucu://login-callback';
+
   static bool get isGuest => _isGuest;
   static bool get isLoggedIn => _supabase.auth.currentSession != null;
   static User? get currentUser => _supabase.auth.currentUser;
+  static String? get userId => currentUser?.id ?? (isGuest ? 'guest' : null);
+  static String? get displayName =>
+      currentUser?.userMetadata?['full_name'] as String? ??
+      currentUser?.email?.split('@')[0];
+  static String? get userEmail => currentUser?.email;
 
-  // ============================================================
-  // GOOGLE İLE GİRİŞ
-  // ============================================================
-static Future<bool> signInWithGoogle() async {
-  try {
-    final existing = _supabase.auth.currentSession;
-    if (existing != null) {
-      _isGuest = false;
-      return true;
-    }
-
-    await _supabase.auth.signInWithOAuth(
-      OAuthProvider.google,
-      redirectTo: 'io.supabase.tatilbulucu://login-callback',
-      authScreenLaunchMode: LaunchMode.externalApplication,
-    );
+  static Future<void> _clearGuestFlag() async {
     _isGuest = false;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('is_guest', false);
-    return true;
-  } catch (e) {
+  }
+
+  static Future<bool> signInWithEmail({
+    required String email,
+    required String password,
+  }) async {
+    final response = await _supabase.auth.signInWithPassword(
+      email: email.trim(),
+      password: password,
+    );
+    if (response.session != null) {
+      await _clearGuestFlag();
+      await TravelBookingService.syncLocalBookingsToCloud();
+      return true;
+    }
     return false;
   }
-}
 
-  // ============================================================
-  // APPLE İLE GİRİŞ
-  // ============================================================
-  static Future<bool> signInWithApple() async {
-    try {
-      await _supabase.auth.signInWithOAuth(
-        OAuthProvider.apple,
-        redirectTo: 'io.supabase.tatilbulucu://login-callback',
-        authScreenLaunchMode: LaunchMode.inAppWebView,
-      );
-      _isGuest = false;
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool('is_guest', false);
+  static Future<bool> signUpWithEmail({
+    required String email,
+    required String password,
+  }) async {
+    final response = await _supabase.auth.signUp(
+      email: email.trim(),
+      password: password,
+    );
+    if (response.session != null) {
+      await _clearGuestFlag();
+      await TravelBookingService.syncLocalBookingsToCloud();
       return true;
+    }
+    // E-posta doğrulama açıksa session null olabilir
+    return response.user != null;
+  }
+
+  static Future<bool> _signInWithOAuthProvider(OAuthProvider provider) async {
+    if (_supabase.auth.currentSession != null) {
+      await _clearGuestFlag();
+      return true;
+    }
+
+    StreamSubscription<AuthState>? sub;
+    try {
+      final completer = Completer<bool>();
+
+      sub = _supabase.auth.onAuthStateChange.listen((data) {
+        if (data.event == AuthChangeEvent.signedIn &&
+            data.session != null &&
+            !completer.isCompleted) {
+          completer.complete(true);
+        }
+      });
+
+      await _supabase.auth.signInWithOAuth(
+        provider,
+        redirectTo: oauthRedirectUrl,
+        authScreenLaunchMode: LaunchMode.externalApplication,
+      );
+
+      final signedIn = await completer.future.timeout(
+        const Duration(seconds: 90),
+        onTimeout: () => _supabase.auth.currentSession != null,
+      );
+
+      if (signedIn) {
+        await _clearGuestFlag();
+        await TravelBookingService.syncLocalBookingsToCloud();
+      }
+      return signedIn;
     } catch (e) {
-      return false;
+      if (_supabase.auth.currentSession != null) {
+        await _clearGuestFlag();
+        await TravelBookingService.syncLocalBookingsToCloud();
+        return true;
+      }
+      rethrow;
+    } finally {
+      await sub?.cancel();
     }
   }
 
-  // ============================================================
-  // MİSAFİR GİRİŞİ
-  // ============================================================
+  static Future<bool> signInWithGoogle() =>
+      _signInWithOAuthProvider(OAuthProvider.google);
+
+  static Future<bool> signInWithFacebook() =>
+      _signInWithOAuthProvider(OAuthProvider.facebook);
+
   static Future<void> continueAsGuest() async {
     _isGuest = true;
     final prefs = await SharedPreferences.getInstance();
@@ -73,9 +126,6 @@ static Future<bool> signInWithGoogle() async {
         'guest_${DateTime.now().millisecondsSinceEpoch}';
   }
 
-  // ============================================================
-  // ÇIKIŞ
-  // ============================================================
   static void clearGuest() {
     _isGuest = false;
     SharedPreferences.getInstance().then((prefs) {
@@ -95,9 +145,6 @@ static Future<bool> signInWithGoogle() async {
     }
   }
 
-  // ============================================================
-  // ÖDEME ÖNCESİ KONTROL
-  // ============================================================
   static AuthStatus checkoutAuthCheck() {
     if (isLoggedIn) return AuthStatus.loggedIn;
     if (_isGuest) return AuthStatus.guest;

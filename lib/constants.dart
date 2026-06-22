@@ -19,6 +19,7 @@ class AppConstants {
   static String get activitiesEndpoint => '$baseUrl/activities';
   static String get visaEndpoint => '$baseUrl/visa';
   static String get chatEndpoint => '$baseUrl/chat';
+  static String get advisorDiscoveryEndpoint => '$baseUrl/advisor/discovery';
   static String get destinationsEndpoint => '$baseUrl/destinations';
   static String get healthEndpoint =>
       isProduction
@@ -28,14 +29,22 @@ class AppConstants {
   // Gateway endpoint'leri
   static String get pythonSearchEndpoint => '$baseUrl/gateway/search';
   static String get gatewayHealthEndpoint => '$baseUrl/gateway/health';
+  static String get calendarQuotesEndpoint => '$baseUrl/calendar/quotes';
+  static String get busSearchEndpoint => '$baseUrl/bus/search';
+  static String get carRentalSearchEndpoint => '$baseUrl/car-rental/search';
   static String get pythonRouteEndpoint => '$_pythonLocalUrl/route';
 
   // Timeout
-  static const Duration connectTimeout = Duration(seconds: 10);
-  static const Duration receiveTimeout = Duration(seconds: 8);
+  static const Duration connectTimeout = Duration(seconds: 15);
+  static const Duration receiveTimeout = Duration(seconds: 12);
+  static const Duration livePriceTimeout = Duration(seconds: 60);
 
-  // Sigorta
+  // Sigorta & ek gelir ürünleri (TL)
   static const int insurancePrice = 450;
+  /// Biletini korumaya al — uçuşa 2 saat kalana kadar %90 iade (kişi başı).
+  static const int ticketProtectionPerPersonTL = 199;
+  /// Esnek bilet — online değişiklik hakkı (rezervasyon başına).
+  static const int flexTicketPerBookingTL = 349;
 
   // Supabase
   static const String supabaseUrl = 'https://dcktytulwlqlwpzyxdst.supabase.co';

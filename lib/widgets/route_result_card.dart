@@ -1,17 +1,31 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:cached_network_image/cached_network_image.dart';
-import 'package:shimmer/shimmer.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../models/route_result_model.dart';
-import '../theme/app_theme.dart';
+import '../widgets/destination_hero_image.dart';
+import '../utils/route_display_pricing.dart';
 import '../city_images.dart';
+import '../theme/app_theme.dart';
+import '../theme/tatil_theme.dart';
+import '../models/budget_package_offer.dart';
+import '../utils/consumer_copy.dart';
+import '../utils/route_recommendation_line.dart';
+import '../widgets/offer_data_badge.dart';
 
+/// Rota sonuç kartı — before.click: destinasyon fotoğrafı, puan, fiyat odaklı.
 class RouteResultCard extends StatelessWidget {
   final RouteResultModel route;
   final int rank;
   final VoidCallback onTap;
   final DateTime? departureDate;
   final DateTime? returnDate;
+  final String? upgradeWarning;
+  final double? serviceScore;
+  final BudgetPackageOffer? budgetOffer;
+  final List<String> holidayTypes;
+  final bool isInCompare;
+  final VoidCallback? onCompareToggle;
+  final VoidCallback? onPriceWatch;
 
   const RouteResultCard({
     super.key,
@@ -20,6 +34,13 @@ class RouteResultCard extends StatelessWidget {
     required this.onTap,
     this.departureDate,
     this.returnDate,
+    this.upgradeWarning,
+    this.serviceScore,
+    this.budgetOffer,
+    this.holidayTypes = const [],
+    this.isInCompare = false,
+    this.onCompareToggle,
+    this.onPriceWatch,
   });
 
   String _monthName(int month) {
@@ -35,6 +56,87 @@ class RouteResultCard extends StatelessWidget {
         )} TL';
   }
 
+  double get _displayScore =>
+      serviceScore ?? route.hotel?.reviewScore ?? route.score / 10.0;
+
+  int get _packageTotal => RouteDisplayPricing.packageTL(route);
+
+  int get _displayTotal => budgetOffer?.displayTotalTL ?? _packageTotal;
+
+  bool get _flightsLive =>
+      budgetOffer?.flightsFromLive == true &&
+      (budgetOffer?.hasVerifiedRoundTripFlight ?? false);
+
+  bool get _hotelsLive => budgetOffer?.hotelsFromLive ?? false;
+
+  OfferDataKind get _offerKind => ConsumerCopy.offerDataKind(
+        flightsLive: budgetOffer?.flightsFromLive ?? false,
+        hotelsLive: _hotelsLive,
+        flightVerified: budgetOffer?.hasVerifiedRoundTripFlight ?? false,
+      );
+
+  String? get _liveHotelPhotoUrl {
+    final url = budgetOffer?.selectedHotel?['photoUrl']?.toString().trim();
+    if (url != null && url.isNotEmpty && url.startsWith('http')) return url;
+    return null;
+  }
+
+  double get _liveHotelScore {
+    final live = budgetOffer?.selectedHotel?['reviewScore'];
+    if (live is num && live > 0) return live.toDouble();
+    return _displayScore;
+  }
+
+  Color get _fitColor {
+    if (budgetOffer != null && !budgetOffer!.hasUserBudget) {
+      return AppTheme.textPrimary;
+    }
+    switch (budgetOffer?.fitKind) {
+      case BudgetFitKind.liveWithinBudget:
+        return AppTheme.teal;
+      case BudgetFitKind.planWithinBudget:
+      case BudgetFitKind.planOnly:
+      case BudgetFitKind.unscoped:
+        return AppTheme.textPrimary;
+      case BudgetFitKind.overBudget:
+        return Colors.red.shade700;
+      case null:
+        return route.isAffordable
+            ? AppTheme.textPrimary
+            : Colors.red.shade700;
+    }
+  }
+
+  Color get _fitBadgeColor {
+    switch (budgetOffer?.fitKind) {
+      case BudgetFitKind.liveWithinBudget:
+        return AppTheme.teal;
+      case BudgetFitKind.overBudget:
+        return AppTheme.orange;
+      case BudgetFitKind.planWithinBudget:
+      case BudgetFitKind.planOnly:
+        return AppTheme.orange;
+      case BudgetFitKind.unscoped:
+      case null:
+        return AppTheme.textMuted;
+    }
+  }
+
+  Color get _fitBadgeBackground {
+    switch (budgetOffer?.fitKind) {
+      case BudgetFitKind.liveWithinBudget:
+        return AppTheme.teal.withValues(alpha: 0.12);
+      case BudgetFitKind.overBudget:
+        return AppTheme.orangeSoft;
+      case BudgetFitKind.planWithinBudget:
+      case BudgetFitKind.planOnly:
+        return AppTheme.orangeSoft;
+      case BudgetFitKind.unscoped:
+      case null:
+        return AppTheme.bgTertiary;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -44,14 +146,24 @@ class RouteResultCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppTheme.bgSecondary,
           borderRadius: BorderRadius.circular(20),
-          border: route.isBestChoice
-              ? Border.all(color: AppTheme.accent.withOpacity(0.5), width: 1.5)
-              : Border.all(color: AppTheme.border, width: 0.5),
+          border: Border.all(
+            color: route.isBestChoice
+                ? AppTheme.accent.withValues(alpha: 0.45)
+                : AppTheme.border,
+            width: route.isBestChoice ? 1.5 : 0.5,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: Column(
           children: [
             _buildHeroImage(),
-            _buildBody(),
+            _buildBody(context),
             if (route.alternativeSuggestion != null) _buildSuggestion(),
           ],
         ),
@@ -60,109 +172,140 @@ class RouteResultCard extends StatelessWidget {
   }
 
   Widget _buildHeroImage() {
-    final imageUrl = CityImages.getImage(route.destinationIata);
     final landmark = CityImages.getLandmark(route.destinationIata);
+    final liveHotelName = budgetOffer?.selectedHotel?['name']?.toString();
+    final subtitle = _liveHotelPhotoUrl != null &&
+            liveHotelName != null &&
+            liveHotelName.isNotEmpty
+        ? liveHotelName
+        : landmark;
 
     return ClipRRect(
       borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       child: SizedBox(
-        height: 180,
+        height: 168,
         width: double.infinity,
         child: Stack(
           fit: StackFit.expand,
           children: [
-            CachedNetworkImage(
-              imageUrl: imageUrl,
-              fit: BoxFit.cover,
-              placeholder: (ctx, url) => Shimmer.fromColors(
-                baseColor: AppTheme.bgSecondary,
-                highlightColor: AppTheme.bgTertiary,
-                child: Container(color: AppTheme.bgSecondary),
-              ),
-              errorWidget: (ctx, url, err) => Container(
-                color: AppTheme.bgTertiary,
-                child: const Icon(Icons.image_not_supported_outlined,
-                    color: AppTheme.textMuted, size: 32),
-              ),
+            DestinationHeroImage(
+              iataCode: route.destinationIata,
+              imageUrl: _liveHotelPhotoUrl,
             ),
-            Container(
+            DecoratedBox(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    Colors.transparent,
-                    AppTheme.bgPrimary.withOpacity(0.3),
-                    AppTheme.bgPrimary.withOpacity(0.85),
+                    Colors.black.withValues(alpha: 0.08),
+                    Colors.black.withValues(alpha: 0.45),
+                    Colors.black.withValues(alpha: 0.78),
                   ],
-                  stops: const [0.3, 0.6, 1.0],
+                  stops: const [0.25, 0.62, 1.0],
                 ),
               ),
             ),
-            if (route.isBestChoice)
-              Positioned(
-                top: 14,
-                right: 14,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: AppTheme.accent,
-                    borderRadius: BorderRadius.circular(99),
-                  ),
-                  child: const Text(
-                    'En İyi Seçim',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.3,
-                    ),
-                  ),
-                ),
-              ),
-            // Skor
             Positioned(
-              top: 14,
-              left: 14,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: AppTheme.bgPrimary.withOpacity(0.7),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.white.withOpacity(0.1)),
-                ),
-                child: Text(
-                  '${route.score.toInt()}',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
+              top: 12,
+              left: 12,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  OfferDataBadge(
+                    kind: _offerKind,
+                    compact: true,
+                    onDark: true,
                   ),
-                ),
+                  if (budgetOffer?.isSmartOptimized == true) ...[
+                    const SizedBox(height: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppTheme.teal.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(99),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            CupertinoIcons.sparkles,
+                            size: 12,
+                            color: AppTheme.teal,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            budgetOffer!.smartPackageSavingsTL != null &&
+                                    budgetOffer!.smartPackageSavingsTL! > 0
+                                ? 'Akıllı paket · ${budgetOffer!.smartPackageSavingsTL} TL'
+                                : 'Akıllı paket',
+                            style: const TextStyle(
+                              color: AppTheme.teal,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  if (route.isBestChoice) ...[
+                    const SizedBox(height: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppTheme.accent,
+                        borderRadius: BorderRadius.circular(99),
+                      ),
+                      child: const Text(
+                        'En iyi seçim',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
-            // Vibe Badge
-            if (route.vibeBadge.isNotEmpty)
+            Positioned(
+              top: 12,
+              right: 12,
+              child: _scorePill(_liveHotelScore),
+            ),
+            if (onPriceWatch != null || onCompareToggle != null)
               Positioned(
-                top: 48,
-                left: 14,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppTheme.teal.withOpacity(0.85),
-                    borderRadius: BorderRadius.circular(99),
-                  ),
-                  child: Text(
-                    route.vibeBadge,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+                top: 12,
+                right: 56,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (onPriceWatch != null)
+                      _heroAction(
+                        icon: CupertinoIcons.bell,
+                        onTap: onPriceWatch!,
+                      ),
+                    if (onCompareToggle != null) ...[
+                      const SizedBox(width: 6),
+                      _heroAction(
+                        icon: isInCompare
+                            ? CupertinoIcons.checkmark_square_fill
+                            : CupertinoIcons.square,
+                        onTap: onCompareToggle!,
+                        active: isInCompare,
+                      ),
+                    ],
+                  ],
                 ),
               ),
-            // Şehir adı ve landmark
             Positioned(
               left: 16,
               bottom: 14,
@@ -172,39 +315,30 @@ class RouteResultCard extends StatelessWidget {
                 children: [
                   Text(
                     route.cityName,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 24,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: -0.5,
-                    ),
+                    style: TatilTheme.destination(fontSize: 26, color: Colors.white),
                   ),
-                  if (landmark.isNotEmpty)
+                  if (subtitle.isNotEmpty)
                     Text(
-                      landmark,
+                      subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.65),
+                        color: Colors.white.withValues(alpha: 0.78),
                         fontSize: 12,
-                        fontWeight: FontWeight.w400,
                       ),
                     ),
-                  if (departureDate != null && returnDate != null)
-                    Container(
-                      margin: const EdgeInsets.only(top: 4),
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.4),
-                        borderRadius: BorderRadius.circular(99),
-                      ),
-                      child: Text(
-                        '${departureDate!.day} ${_monthName(departureDate!.month)} - ${returnDate!.day} ${_monthName(returnDate!.month)} · ${route.nights} gece',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w500,
-                        ),
+                  if (departureDate != null && returnDate != null) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      '${departureDate!.day} ${_monthName(departureDate!.month)} – '
+                      '${returnDate!.day} ${_monthName(returnDate!.month)} · ${route.nights} gece',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.88),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
+                  ],
                 ],
               ),
             ),
@@ -214,173 +348,268 @@ class RouteResultCard extends StatelessWidget {
     );
   }
 
-  Widget _buildBody() {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
+  Widget _scorePill(double score) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.95),
+        borderRadius: BorderRadius.circular(99),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          // Uçuş & Otel bilgisi
-          Row(
-            children: [
-              if (route.flight != null)
-                Expanded(
-                  child: _infoTile(
-                    icon: CupertinoIcons.airplane,
-                    label: route.flight!.airline,
-                    sub: route.flight!.duration,
-                  ),
-                ),
-              if (route.flight != null && route.hotel != null)
-                const SizedBox(width: 10),
-              if (route.hotel != null)
-                Expanded(
-                  child: _infoTile(
-                    icon: CupertinoIcons.house,
-                    label: '${route.hotel!.reviewScore}/10',
-                    sub: route.hotel!.name.split(' ').take(2).join(' '),
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          _budgetBar(
-            icon: CupertinoIcons.airplane,
-            label: 'Uçuş',
-            percentage: route.budgetBreakdown.flightPercentage,
-            amount: route.estimatedCost.flight,
-            color: AppTheme.accent,
-          ),
-          const SizedBox(height: 8),
-          _budgetBar(
-            icon: CupertinoIcons.house,
-            label: 'Otel',
-            percentage: route.budgetBreakdown.hotelPercentage,
-            amount: route.estimatedCost.hotel,
-            color: AppTheme.teal,
-          ),
-          const SizedBox(height: 8),
-          _budgetBar(
-            icon: CupertinoIcons.car_detailed,
-            label: 'Transfer',
-            percentage: route.budgetBreakdown.transferPercentage,
-            amount: route.estimatedCost.transfer,
-            color: const Color(0xFF8B5CF6),
-          ),
-          const SizedBox(height: 8),
-          _budgetBar(
-            icon: CupertinoIcons.money_dollar_circle,
-            label: 'Harçlık',
-            percentage: route.budgetBreakdown.pocketPercentage,
-            amount: route.estimatedCost.pocketMoney,
-            color: const Color(0xFF6366F1),
-          ),
-          const SizedBox(height: 14),
-          Divider(color: AppTheme.border, height: 1),
-          const SizedBox(height: 10),
-          // Match Percentage
-          if (route.matchPercentage > 0)
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Container(
-                margin: const EdgeInsets.only(bottom: 10),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: AppTheme.accent.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(99),
-                  border: Border.all(color: AppTheme.accent.withOpacity(0.3)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(CupertinoIcons.checkmark_seal_fill,
-                        color: AppTheme.accent, size: 12),
-                    const SizedBox(width: 4),
-                    Text(
-                      '%${route.matchPercentage} Eslesme',
-                      style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.accent),
-                    ),
-                  ],
-                ),
-              ),
+          const Icon(CupertinoIcons.star_fill, size: 12, color: AppTheme.accent),
+          const SizedBox(width: 4),
+          Text(
+            score.toStringAsFixed(1),
+            style: GoogleFonts.inter(
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+              color: AppTheme.textPrimary,
             ),
-          // Toplam & buton
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Tahmini Toplam',
-                    style: TextStyle(fontSize: 11, color: AppTheme.textMuted),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    _fmt(route.estimatedCost.total),
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                      color: route.isAffordable
-                          ? AppTheme.textPrimary
-                          : Colors.redAccent,
-                    ),
-                  ),
-                ],
-              ),
-              Row(
-                children: [
-                  if (route.isAffordable)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                      decoration: BoxDecoration(
-                        color: AppTheme.teal.withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(99),
-                      ),
-                      child: Text(
-                        '+${_fmt(route.estimatedCost.remaining)}',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.teal,
-                        ),
-                      ),
-                    ),
-                  const SizedBox(width: 10),
-                  GestureDetector(
-                    onTap: onTap,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: route.isAffordable
-                            ? AppTheme.accent
-                            : const Color(0xFF7F1D1D),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Text(
-                        'İncele',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
           ),
         ],
       ),
     );
   }
 
+  Widget _buildBody(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildTripSummary(),
+          const SizedBox(height: 10),
+          _buildWhyThisRoute(),
+          const SizedBox(height: 14),
+          _buildRecommendationPrice(),
+          if (upgradeWarning != null) ...[
+            const SizedBox(height: 10),
+            Text(
+              upgradeWarning!,
+              style: TextStyle(
+                fontSize: 11,
+                color: AppTheme.orange.withValues(alpha: 0.95),
+                height: 1.35,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+          const SizedBox(height: 14),
+          _buildFooter(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTripSummary() {
+    final liveFlight = budgetOffer?.selectedFlight;
+    final liveHotel = budgetOffer?.selectedHotel;
+    final flight = route.flight;
+    final hotel = route.hotel;
+
+    if (liveFlight == null &&
+        flight == null &&
+        liveHotel == null &&
+        (hotel == null || hotel.name.isEmpty || hotel.name == '--')) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (liveFlight != null || flight != null)
+          _summaryLine(
+            label: liveFlight?['airline']?.toString() ??
+                '${flight!.airline} · ${flight.duration}',
+            isLive: liveFlight != null && _flightsLive,
+          ),
+        if (liveHotel != null ||
+            (hotel != null && hotel.name.isNotEmpty && hotel.name != '--')) ...[
+          if (liveFlight != null || flight != null) const SizedBox(height: 6),
+          _summaryLine(
+            label: liveHotel?['name']?.toString() ?? hotel!.name,
+            isLive: liveHotel != null && _hotelsLive,
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _summaryLine({required String label, required bool isLive}) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(
+          isLive ? CupertinoIcons.checkmark_seal_fill : CupertinoIcons.sparkles,
+          size: 13,
+          color: isLive ? AppTheme.teal : AppTheme.textMuted,
+        ),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            label,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.inter(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: AppTheme.textPrimary,
+              height: 1.4,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildWhyThisRoute() {
+    final line = RouteRecommendationLine.build(
+      route: route,
+      offer: budgetOffer,
+      holidayTypes: holidayTypes,
+      rank: rank,
+      serviceScore: _displayScore,
+    );
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Icon(
+          CupertinoIcons.lightbulb_fill,
+          size: 14,
+          color: AppTheme.teal,
+        ),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            line,
+            style: GoogleFonts.inter(
+              fontSize: 11,
+              height: 1.4,
+              fontWeight: FontWeight.w500,
+              color: AppTheme.textSecondary,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRecommendationPrice() {
+    final priceNote = ConsumerCopy.offerDataLabel(_offerKind);
+    final priceHint = ConsumerCopy.offerDataHint(
+      flightsLive: budgetOffer?.flightsFromLive ?? false,
+      hotelsLive: _hotelsLive,
+      flightVerified: budgetOffer?.hasVerifiedRoundTripFlight ?? false,
+    );
+    final showFitBadge = budgetOffer != null &&
+        budgetOffer!.hasUserBudget &&
+        budgetOffer!.fitLabel.isNotEmpty;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (showFitBadge) ...[
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: _fitBadgeBackground,
+              borderRadius: BorderRadius.circular(99),
+            ),
+            child: Text(
+              budgetOffer!.fitLabel,
+              style: GoogleFonts.inter(
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                color: _fitBadgeColor,
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
+        Text(
+          _fmt(_displayTotal),
+          style: GoogleFonts.inter(
+            fontSize: 26,
+            fontWeight: FontWeight.w800,
+            color: _fitColor,
+            letterSpacing: -0.5,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          '$priceNote · uçak + otel · ${route.nights} gece',
+          style: GoogleFonts.inter(fontSize: 11, color: AppTheme.textMuted),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          priceHint,
+          style: GoogleFonts.inter(
+            fontSize: 10,
+            color: AppTheme.textMuted,
+            height: 1.35,
+          ),
+        ),
+        if (budgetOffer != null &&
+            budgetOffer!.hasUserBudget &&
+            budgetOffer!.budgetGapTL > 0) ...[
+          const SizedBox(height: 4),
+          Text(
+            'Bütçeden +${_fmt(budgetOffer!.budgetGapTL)}',
+            style: GoogleFonts.inter(
+              fontSize: 11,
+              color: AppTheme.orange,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildFooter() {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Expanded(
+          child: Text(
+            'Öneri paket · detayda uçuş ve oteli ayrı da alabilirsiniz',
+            style: GoogleFonts.inter(
+              fontSize: 11,
+              color: AppTheme.textMuted,
+              height: 1.35,
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Material(
+          color: AppTheme.accent,
+          borderRadius: BorderRadius.circular(12),
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(12),
+            child: const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              child: Text(
+                'İncele',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildSuggestion() {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
       decoration: BoxDecoration(
         color: const Color(0xFF2A1F0E),
         borderRadius: const BorderRadius.vertical(bottom: Radius.circular(20)),
@@ -390,16 +619,16 @@ class RouteResultCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Icon(Icons.lightbulb_outline_rounded,
-              size: 16, color: Color(0xFFF59E0B)),
-          const SizedBox(width: 10),
+              size: 15, color: Color(0xFFF59E0B)),
+          const SizedBox(width: 8),
           Expanded(
             child: Text(
               route.alternativeSuggestion!,
               style: const TextStyle(
-                fontSize: 12,
+                fontSize: 11,
                 color: Color(0xFFF59E0B),
                 fontWeight: FontWeight.w500,
-                height: 1.5,
+                height: 1.45,
               ),
             ),
           ),
@@ -408,87 +637,24 @@ class RouteResultCard extends StatelessWidget {
     );
   }
 
-  Widget _infoTile({
+  Widget _heroAction({
     required IconData icon,
-    required String label,
-    required String sub,
+    required VoidCallback onTap,
+    bool active = false,
   }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: AppTheme.bgTertiary,
-        borderRadius: BorderRadius.circular(10),
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: active
+              ? AppTheme.teal.withValues(alpha: 0.9)
+              : Colors.black.withValues(alpha: 0.45),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+        ),
+        child: Icon(icon, size: 16, color: Colors.white),
       ),
-      child: Row(
-        children: [
-          Icon(icon, size: 16, color: AppTheme.textMuted),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.textPrimary,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-                Text(
-                  sub,
-                  style: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _budgetBar({
-    required IconData icon,
-    required String label,
-    required int percentage,
-    required int amount,
-    required Color color,
-  }) {
-    return Row(
-      children: [
-        Icon(icon, size: 14, color: AppTheme.textMuted),
-        const SizedBox(width: 6),
-        SizedBox(
-          width: 52,
-          child: Text(label,
-              style: const TextStyle(fontSize: 11, color: AppTheme.textMuted)),
-        ),
-        Expanded(
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(99),
-            child: LinearProgressIndicator(
-              value: percentage / 100,
-              backgroundColor: color.withOpacity(0.1),
-              valueColor: AlwaysStoppedAnimation<Color>(color),
-              minHeight: 4,
-            ),
-          ),
-        ),
-        const SizedBox(width: 8),
-        SizedBox(
-          width: 72,
-          child: Text(
-            _fmt(amount),
-            textAlign: TextAlign.right,
-            style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
-                color: AppTheme.textSecondary),
-          ),
-        ),
-      ],
     );
   }
 }

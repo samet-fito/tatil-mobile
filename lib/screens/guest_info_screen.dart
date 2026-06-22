@@ -45,33 +45,11 @@ class _GuestInfoScreenState extends State<GuestInfoScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
-    await Future.delayed(const Duration(seconds: 1));
+    await Future.delayed(const Duration(milliseconds: 400));
+    if (!mounted) return;
     setState(() => _isLoading = false);
-
-    if (mounted) {
-      showDialog(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('✅ Bilgiler Alındı!'),
-          content: Text(
-            '${_nameController.text} ${_surnameController.text},\n\n'
-            '${widget.cityName} rezervasyonunuz için bilgileriniz alındı.\n\n'
-            'Toplam: ${_formatPrice(widget.totalPrice)}\n\n'
-            'Ödeme sistemi yakında aktif olacak!',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(ctx);
-                Navigator.pop(context);
-                widget.onComplete();
-              },
-              child: const Text('Tamam'),
-            ),
-          ],
-        ),
-      );
-    }
+    Navigator.pop(context);
+    widget.onComplete();
   }
 
   @override
@@ -284,7 +262,7 @@ class _GuestInfoScreenState extends State<GuestInfoScreen> {
               child: ElevatedButton(
                 onPressed: _isLoading ? null : _submit,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.accent,
+                  backgroundColor: AppTheme.orange,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
                   ),
@@ -295,7 +273,7 @@ class _GuestInfoScreenState extends State<GuestInfoScreen> {
                         strokeWidth: 2,
                       )
                     : const Text(
-                        '✅ Rezervasyonu Tamamla',
+                        'Rezervasyonu Tamamla',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,

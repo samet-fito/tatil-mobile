@@ -25,6 +25,7 @@ class _ClinicChatScreenState extends State<ClinicChatScreen> {
   String? _conversationId;
   bool _isLoading = true;
   bool _isSending = false;
+  String? _initError;
 
   @override
   void initState() {
@@ -40,42 +41,52 @@ class _ClinicChatScreenState extends State<ClinicChatScreen> {
   }
 
   Future<void> _initConversation() async {
-    final supabase = Supabase.instance.client;
-    final userId = await AuthService.getSessionId();
+    try {
+      final supabase = Supabase.instance.client;
+      final userId = await AuthService.getSessionId();
 
-    final existing = await supabase
-        .from('conversations')
-        .select()
-        .eq('user_id', userId)
-        .eq('clinic_id', widget.clinicId)
-        .eq('status', 'active')
-        .maybeSingle();
-
-    if (existing != null) {
-      _conversationId = existing['id'];
-    } else {
-      final newConv = await supabase
+      final existing = await supabase
           .from('conversations')
-          .insert({
-            'user_id': userId,
-            'clinic_id': widget.clinicId,
-            'subject': '${widget.clinicName} ile gorusme',
-          })
           .select()
-          .single();
-      _conversationId = newConv['id'];
+          .eq('user_id', userId)
+          .eq('clinic_id', widget.clinicId)
+          .eq('status', 'active')
+          .maybeSingle();
 
-      await supabase.from('messages').insert({
-        'conversation_id': _conversationId,
-        'sender_id': widget.clinicId,
-        'sender_type': 'ai',
-        'content':
-            'Merhaba! ${widget.clinicName} adina sizi karsiliyoruz. Size nasil yardimci olabiliriz?',
-      });
+      if (existing != null) {
+        _conversationId = existing['id'];
+      } else {
+        final newConv = await supabase
+            .from('conversations')
+            .insert({
+              'user_id': userId,
+              'clinic_id': widget.clinicId,
+              'subject': '${widget.clinicName} ile gorusme',
+            })
+            .select()
+            .single();
+        _conversationId = newConv['id'];
+
+        await supabase.from('messages').insert({
+          'conversation_id': _conversationId,
+          'sender_id': widget.clinicId,
+          'sender_type': 'ai',
+          'content':
+              'Merhaba! ${widget.clinicName} adina sizi karsiliyoruz. Size nasil yardimci olabiliriz?',
+        });
+      }
+
+      await _loadMessages();
+      _subscribeToMessages();
+      if (mounted) setState(() => _isLoading = false);
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _initError = 'Sohbet başlatılamadı. Lütfen tekrar deneyin.';
+        });
+      }
     }
-
-    await _loadMessages();
-    _subscribeToMessages();
   }
 
   Future<void> _loadMessages() async {
@@ -235,6 +246,17 @@ class _ClinicChatScreenState extends State<ClinicChatScreen> {
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator(color: AppTheme.teal))
+                : _initError != null
+                    ? Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Text(
+                            _initError!,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(color: AppTheme.textMuted),
+                          ),
+                        ),
+                      )
                 : _messages.isEmpty
                     ? const Center(
                         child: Text('Henuz mesaj yok.',
