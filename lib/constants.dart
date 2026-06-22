@@ -17,6 +17,11 @@ class AppConstants {
   // Endpoint'ler
   static String get searchEndpoint => '$baseUrl/search';
   static String get activitiesEndpoint => '$baseUrl/activities';
+  static String activityTourEndpoint(String tourId) =>
+      '$baseUrl/activities/tour/$tourId';
+  static String activityTourOptionsEndpoint(String tourId) =>
+      '$baseUrl/activities/tour/$tourId/options';
+  static String get activityBookEndpoint => '$baseUrl/activities/book';
   static String get visaEndpoint => '$baseUrl/visa';
   static String get chatEndpoint => '$baseUrl/chat';
   static String get advisorDiscoveryEndpoint => '$baseUrl/advisor/discovery';

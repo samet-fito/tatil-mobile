@@ -73,9 +73,11 @@ class CommissionActivities {
       'cityName': cityName,
       'iata': iata.toUpperCase(),
       'headline': '$cityName\'de Önerilen Aktiviteler',
-      'subtitle': apiData['source'] == 'mock'
-          ? 'Backend aktivite kataloğu'
-          : 'Vizegoo partner ağı — güvenli rezervasyon',
+      'subtitle': switch (apiData['source']) {
+        'mock' => 'Backend aktivite kataloğu',
+        'getyourguide' => 'GetYourGuide partner ağı — canlı fiyatlar',
+        _ => 'Vizegoo partner ağı — güvenli rezervasyon',
+      },
       'dataSource': apiData['source'] ?? 'api',
       'categories': categories,
       if (tripStart != null) 'eventDeparture': tripStart.toIso8601String(),
@@ -106,6 +108,10 @@ class CommissionActivities {
         (act['commissionRate'] as num?)?.toDouble() ??
         0.12;
     return {
+      'id': act['id'] as String? ?? 'act-${title.hashCode}',
+      'source': act['source'] as String? ?? 'api',
+      'gygTourId': act['gygTourId'],
+      'gygOptionId': act['gygOptionId'],
       'title': title,
       'summary': desc,
       'description': desc,
@@ -113,12 +119,19 @@ class CommissionActivities {
           '$desc\n\nPartner ağımız üzerinden güvenli rezervasyon yapabilirsiniz.',
       'duration': act['duration'] as String? ?? '—',
       'priceTL': (act['priceTL'] as num?)?.toInt() ?? 0,
+      'priceEUR': (act['priceEUR'] as num?)?.toDouble(),
       'rating': (act['rating'] as num?)?.toDouble() ?? 4.5,
       'reviewCount': (act['reviewCount'] as num?)?.toInt() ?? 0,
       'commissionRate': commission,
+      'imageUrl': act['imageUrl'] as String?,
       'highlights': List<String>.from(
         act['highlights'] ?? ['Partner aktivite', 'Anında onay', 'Güvenli ödeme'],
       ),
+      'inclusions': act['inclusions'] as String? ?? '',
+      'exclusions': act['exclusions'] as String? ?? '',
+      'cancellationPolicy': act['cancellationPolicy'] as String? ?? '',
+      'freeCancellation': act['freeCancellation'] == true,
+      'bestseller': act['bestseller'] == true,
       'isPartner': true,
     };
   }

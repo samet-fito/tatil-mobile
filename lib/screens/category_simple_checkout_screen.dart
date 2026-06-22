@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../models/search_category.dart';
 import '../config/app_experience.dart';
 import '../theme/app_theme.dart';
@@ -7,6 +8,8 @@ import '../theme/tatil_theme.dart';
 import '../utils/category_checkout_route.dart';
 import '../utils/price_format.dart';
 import '../widgets/preview_mode_banner.dart';
+import '../services/payment_service.dart';
+import '../services/api_service.dart';
 import '../services/travel_booking_service.dart';
 import 'activity_booking_success_screen.dart';
 import 'booking_success_screen.dart';
@@ -75,12 +78,72 @@ class _CategorySimpleCheckoutScreenState
     }
 
     setState(() => _processing = true);
-    await Future.delayed(const Duration(milliseconds: 900));
-    if (!mounted) return;
-    setState(() => _processing = false);
 
     final reservationId =
         'VG-${DateTime.now().millisecondsSinceEpoch % 1000000}';
+
+    final payment = await PaymentService.charge(
+      amountTL: widget.priceTL,
+      reservationRef: reservationId,
+      paymentMethod: 'card',
+      skipGateway: !AppExperience.paymentsEnabled,
+    );
+
+    if (!mounted) return;
+    if (!payment.success) {
+      setState(() => _processing = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            payment.errorMessage ?? 'Ödeme tamamlanamadı.',
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    String? gygBookingRef;
+    if (widget.category == SearchCategory.activities &&
+        widget.activity != null &&
+        widget.activity!['source'] == 'getyourguide') {
+      final optionRaw = widget.activity!['gygOptionId'];
+      final optionId = optionRaw is int
+          ? optionRaw
+          : int.tryParse(optionRaw?.toString() ?? '');
+      final priceEUR = (widget.activity!['priceEUR'] as num?)?.toDouble();
+      final eventDate =
+          widget.eventDate ?? DateTime.now().add(const Duration(days: 7));
+      final datetime =
+          '${DateFormat('yyyy-MM-dd').format(eventDate)} 09:00:00';
+
+      if (optionId != null && priceEUR != null) {
+        final nameParts = _nameCtrl.text.trim().split(' ');
+        final book = await ApiService.bookActivity(
+          optionId: optionId,
+          datetime: datetime,
+          priceEUR: priceEUR * widget.passengers,
+          participants: widget.passengers,
+          externalReferenceId: reservationId,
+          billingContact: {
+            'firstname': nameParts.first,
+            'lastname': nameParts.length > 1
+                ? nameParts.sublist(1).join(' ')
+                : nameParts.first,
+            'email': _emailCtrl.text.trim().isNotEmpty
+                ? _emailCtrl.text.trim()
+                : 'noreply@vizegoo.com',
+            'phone': _phoneCtrl.text.trim(),
+          },
+        );
+        if (book['success'] == true) {
+          gygBookingRef = book['data']?['booking']?['booking_id']?.toString();
+        }
+      }
+    }
+
+    if (!mounted) return;
+    setState(() => _processing = false);
 
     if (widget.category == SearchCategory.activities &&
         widget.activity != null) {
@@ -104,7 +167,10 @@ class _CategorySimpleCheckoutScreenState
         context,
         MaterialPageRoute(
           builder: (_) => ActivityBookingSuccessScreen(
-            activity: widget.activity!,
+            activity: {
+              ...widget.activity!,
+              if (gygBookingRef != null) 'gygBookingRef': gygBookingRef,
+            },
             cityName: widget.destinationCity,
             destinationIata: widget.destinationIata.isNotEmpty
                 ? widget.destinationIata

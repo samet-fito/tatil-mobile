@@ -446,10 +446,15 @@ class ApiService {
     );
     if (result['success'] == true && result['data'] != null) {
       try {
+        final raw = Map<String, dynamic>.from(result['data'] as Map);
+        final payload = <String, dynamic>{
+          'source': raw['source'] ?? result['meta']?['provider'],
+          'activities': raw['activities'] ?? raw,
+        };
         return {
           'success': true,
           'data': CommissionActivities.fromApiActivities(
-            Map<String, dynamic>.from(result['data'] as Map),
+            payload,
             iata,
             cityName,
             tripStart: DateTime.tryParse(departure),
@@ -467,6 +472,91 @@ class ApiService {
       'success': false,
       'error': {'message': 'Aktiviteler yüklenemedi.'},
     };
+  }
+
+  static Future<Map<String, dynamic>> getActivityProviderStatus() async {
+    try {
+      final response = await http
+          .get(Uri.parse('${AppConstants.activitiesEndpoint}/status'))
+          .timeout(AppConstants.connectTimeout);
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+      return {'success': false};
+    } catch (e) {
+      return _connectionError(e);
+    }
+  }
+
+  static Future<Map<String, dynamic>> getActivityTourDetail(String tourId) async {
+    try {
+      final response = await http
+          .get(Uri.parse(AppConstants.activityTourEndpoint(tourId)))
+          .timeout(AppConstants.receiveTimeout);
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+      return {'success': false};
+    } catch (e) {
+      return _connectionError(e);
+    }
+  }
+
+  static Future<Map<String, dynamic>> getActivityTourOptions({
+    required String tourId,
+    required String date,
+  }) async {
+    try {
+      final uri = Uri.parse(AppConstants.activityTourOptionsEndpoint(tourId))
+          .replace(queryParameters: {'date': date});
+      final response =
+          await http.get(uri).timeout(AppConstants.receiveTimeout);
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+      return {'success': false};
+    } catch (e) {
+      return _connectionError(e);
+    }
+  }
+
+  static Future<Map<String, dynamic>> bookActivity({
+    required int optionId,
+    required String datetime,
+    required double priceEUR,
+    int participants = 1,
+    String? externalReferenceId,
+    String? shoppingCartHash,
+    Map<String, dynamic>? billingContact,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse(AppConstants.activityBookEndpoint),
+            headers: const {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'optionId': optionId,
+              'datetime': datetime,
+              'priceEUR': priceEUR,
+              'participants': participants,
+              if (externalReferenceId != null)
+                'externalReferenceId': externalReferenceId,
+              if (shoppingCartHash != null)
+                'shoppingCartHash': shoppingCartHash,
+              if (billingContact != null) 'billingContact': billingContact,
+            }),
+          )
+          .timeout(AppConstants.receiveTimeout);
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+      return {
+        'success': false,
+        'error': {'message': 'Rezervasyon oluşturulamadı (${response.statusCode})'},
+      };
+    } catch (e) {
+      return _connectionError(e);
+    }
   }
 
   // ============================================================
