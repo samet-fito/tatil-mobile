@@ -3,6 +3,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../models/search_category.dart';
 import '../models/stored_booking_model.dart';
 import '../theme/app_theme.dart';
 import '../theme/tatil_theme.dart';
