@@ -1,21 +1,26 @@
 import 'package:flutter/cupertino.dart';
+import '../theme/custom_page_route.dart';
 import 'clinic_chat_screen.dart';
 import 'package:flutter/material.dart';
 import '../models/medical_model.dart';
 import '../models/search_model.dart';
 import '../theme/app_theme.dart';
 import '../services/api_service.dart';
+import '../services/admin_service.dart';
+import '../utils/price_format.dart';
 
 class MedicalDetailScreen extends StatefulWidget {
   final MedicalPackage package;
   final SearchModel searchModel;
-  final double flightCostTL;
+  final String destinationIata;
+  final String cityName;
 
   const MedicalDetailScreen({
     super.key,
     required this.package,
     required this.searchModel,
-    required this.flightCostTL,
+    required this.destinationIata,
+    required this.cityName,
   });
 
   @override
@@ -24,19 +29,84 @@ class MedicalDetailScreen extends StatefulWidget {
 
 class _MedicalDetailScreenState extends State<MedicalDetailScreen> {
   bool _insuranceSelected = false;
+  bool _loadingTravelCosts = true;
+  double? _flightCostTL;
+  double? _hotelCostTL;
+  double? _transferCostTL;
   final String _sessionId = 'sess_${DateTime.now().millisecondsSinceEpoch}';
   static const int INSURANCE_PRICE = 450;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTravelCosts();
+  }
+
+  Future<void> _loadTravelCosts() async {
+    final nights = widget.package.totalDays.clamp(1, 30);
+    final checkOut = widget.searchModel.departureDate.add(Duration(days: nights));
+    final travelers =
+        widget.searchModel.passengers + widget.searchModel.children;
+
+    final results = await Future.wait([
+      ApiService.searchRealFlights(
+        originIata: widget.searchModel.originIata,
+        destinationIata: widget.destinationIata,
+        departureDate: widget.searchModel.departureDate,
+        returnDate: checkOut,
+        passengers: travelers,
+      ),
+      ApiService.searchHotels(
+        cityName: widget.cityName,
+        checkIn: widget.searchModel.departureDate,
+        returnDate: checkOut,
+        adults: travelers,
+      ),
+      AdminService.getActiveTransferForIata(widget.destinationIata),
+    ]);
+
+    if (!mounted) return;
+
+    final flights = results[0] as List<Map<String, dynamic>>;
+    final hotels = results[1] as List<Map<String, dynamic>>;
+    final transfer = results[2] as Map<String, dynamic>?;
+
+    double? flightCost;
+    if (flights.isNotEmpty) {
+      flightCost = (flights.first['totalAmountTL'] as num?)?.toDouble();
+    }
+
+    double? hotelCost;
+    if (hotels.isNotEmpty) {
+      final perNight = PriceFormat.hotelPerNightTL(hotels.first);
+      hotelCost = perNight * nights.toDouble();
+    }
+
+    double? transferCost;
+    if (transfer != null) {
+      transferCost = (transfer['price_fixed'] as num?)?.toDouble();
+    }
+
+    setState(() {
+      _flightCostTL = flightCost;
+      _hotelCostTL = hotelCost;
+      _transferCostTL = transferCost;
+      _loadingTravelCosts = false;
+    });
+  }
 
   String _formatPrice(double price) {
     return '${price.toInt().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.')} TL';
   }
 
-  double get _totalCost =>
-      widget.flightCostTL +
-      widget.package.priceTL +
-      (widget.searchModel.totalBudgetTL * 0.15) +
-      (widget.searchModel.totalBudgetTL * 0.05) +
-      (_insuranceSelected ? INSURANCE_PRICE : 0);
+  double get _totalCost {
+    var total = widget.package.priceTL;
+    if (_flightCostTL != null) total += _flightCostTL!;
+    if (_hotelCostTL != null) total += _hotelCostTL!;
+    if (_transferCostTL != null) total += _transferCostTL!;
+    if (_insuranceSelected) total += INSURANCE_PRICE;
+    return total;
+  }
 
   double get _commissionTL =>
       widget.package.priceTL * widget.package.commissionRate;
@@ -192,13 +262,11 @@ class _MedicalDetailScreenState extends State<MedicalDetailScreen> {
         child: Row(
           children: [
             GestureDetector(
-              onTap: () => Navigator.push(
+              onTap: () => pushAppRoute(
                 context,
-                MaterialPageRoute(
-                  builder: (ctx) => ClinicChatScreen(
-                    clinicId: widget.package.clinicId ?? '',
-                    clinicName: widget.package.clinic?.name ?? 'Klinik',
-                  ),
+                ClinicChatScreen(
+                  clinicId: widget.package.clinicId,
+                  clinicName: widget.package.clinic?.name ?? 'Klinik',
                 ),
               ),
               child: Container(
@@ -232,21 +300,23 @@ class _MedicalDetailScreenState extends State<MedicalDetailScreen> {
             ),
             const SizedBox(width: 16),
             Expanded(
-              child: ElevatedButton(
-                onPressed: _bookMedicalPackage,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.health,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: const Text(
-                  '🏥 Medikal Paket Rezerve Et',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
+              child: Material(
+                color: AppTheme.teal,
+                borderRadius: BorderRadius.circular(12),
+                child: InkWell(
+                  onTap: _bookMedicalPackage,
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    alignment: Alignment.center,
+                    child: const Text(
+                      'Rezervasyon Yap',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -301,8 +371,6 @@ class _MedicalDetailScreenState extends State<MedicalDetailScreen> {
   // ============================================================
   Widget _buildCostSummary() {
     final budget = widget.searchModel.totalBudgetTL;
-    final hotel = budget * 0.15;
-    final transfer = budget * 0.05;
     final remaining = budget - _totalCost;
 
     return Container(
@@ -323,10 +391,22 @@ class _MedicalDetailScreenState extends State<MedicalDetailScreen> {
             ),
           ),
           const SizedBox(height: 12),
-          _costRow('✈️ Uçuş', widget.flightCostTL),
-          _costRow('🏥 Tedavi', widget.package.priceTL),
-          _costRow('🏨 Otel (${widget.package.totalDays} gece)', hotel),
-          _costRow('🚗 VIP Transfer', transfer),
+          if (_loadingTravelCosts)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: Center(
+                child: CircularProgressIndicator(color: AppTheme.health),
+              ),
+            )
+          else ...[
+            _costRow('✈️ Uçuş', _flightCostTL),
+            _costRow('🏥 Tedavi', widget.package.priceTL),
+            _costRow(
+              '🏨 Otel (${widget.package.totalDays} gece)',
+              _hotelCostTL,
+            ),
+            _costRow('🚗 VIP Transfer', _transferCostTL),
+          ],
           const Divider(height: 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -364,7 +444,7 @@ class _MedicalDetailScreenState extends State<MedicalDetailScreen> {
     );
   }
 
-  Widget _costRow(String label, double amount) {
+  Widget _costRow(String label, double? amount) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
@@ -373,8 +453,12 @@ class _MedicalDetailScreenState extends State<MedicalDetailScreen> {
           Text(label,
               style: const TextStyle(fontSize: 13, color: AppTheme.textMuted)),
           Text(
-            _formatPrice(amount),
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+            amount != null ? _formatPrice(amount) : 'Canlı fiyat yok',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: amount != null ? AppTheme.textPrimary : AppTheme.textMuted,
+            ),
           ),
         ],
       ),
@@ -870,11 +954,18 @@ Widget _notIncludedRow(String title, String sub) {
   // REZERVASYON
   // ============================================================
   Future<void> _bookMedicalPackage() async {
+    if (_flightCostTL == null || _hotelCostTL == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Uçuş ve otel fiyatları yüklenemedi. Tekrar deneyin.'),
+        ),
+      );
+      return;
+    }
+
     final travelDate = widget.searchModel.departureDate
         .toIso8601String()
         .split('T')[0];
-    final hotelCost = widget.searchModel.totalBudgetTL * 0.15;
-    final transferCost = widget.searchModel.totalBudgetTL * 0.05;
 
     await ApiService.saveMedicalBooking(
       sessionId: _sessionId,
@@ -883,8 +974,8 @@ Widget _notIncludedRow(String title, String sub) {
       travelDate: travelDate,
       passengerCount: widget.searchModel.passengers,
       treatmentPriceTL: widget.package.priceTL,
-      flightPriceTL: widget.flightCostTL,
-      hotelPriceTL: hotelCost,
+      flightPriceTL: _flightCostTL!,
+      hotelPriceTL: _hotelCostTL!,
       totalPriceTL: _totalCost,
       commissionTL: _commissionTL,
     );

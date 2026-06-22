@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../services/auth_service.dart';
 
 class AdminService {
   static final _supabase = Supabase.instance.client;
@@ -90,6 +89,23 @@ static Future<bool> addHotel(Map<String, dynamic> hotel) async {
     } catch (e) {
       return [];
     }
+  }
+
+  static Future<Map<String, dynamic>?> getActiveTransferForIata(String iata) async {
+    try {
+      final result = await _supabase
+          .from('local_transfers')
+          .select('*')
+          .eq('destination_iata', iata.toUpperCase())
+          .eq('is_active', true)
+          .limit(1);
+      if (result.isNotEmpty) {
+        return Map<String, dynamic>.from(result.first);
+      }
+    } catch (e) {
+      debugPrint('Transfer lookup error: $e');
+    }
+    return null;
   }
 
   static Future<bool> addTransfer(Map<String, dynamic> transfer) async {

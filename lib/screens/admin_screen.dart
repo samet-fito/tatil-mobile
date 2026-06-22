@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import '../services/admin_service.dart';
 import '../theme/app_theme.dart';
+import '../theme/custom_page_route.dart';
 import 'admin_clinics_screen.dart';
 import 'admin_hotels_screen.dart';
 import 'admin_transfers_screen.dart';
@@ -88,11 +89,9 @@ class _AdminScreenState extends State<AdminScreen> {
                     subtitle: '$_pendingClinics basvuru inceleme bekliyor',
                     color: _pendingClinics > 0 ? AppTheme.accent : AppTheme.textMuted,
                     badge: _pendingClinics > 0 ? '$_pendingClinics' : null,
-                    onTap: () => Navigator.push(
+                    onTap: () => pushAppRoute(
                       context,
-                      MaterialPageRoute(
-                        builder: (ctx) => const AdminPendingClinicsScreen(),
-                      ),
+                      const AdminPendingClinicsScreen(),
                     ).then((_) => _loadStats()),
                   ),
                   const SizedBox(height: 10),
@@ -102,11 +101,9 @@ class _AdminScreenState extends State<AdminScreen> {
                     title: 'Klinik Yonetimi',
                     subtitle: 'Klinik ve tedavi paketleri',
                     color: AppTheme.teal,
-                    onTap: () => Navigator.push(
+                    onTap: () => pushAppRoute(
                       context,
-                      MaterialPageRoute(
-                        builder: (ctx) => const AdminClinicsScreen(),
-                      ),
+                      const AdminClinicsScreen(),
                     ).then((_) => _loadStats()),
                   ),
                   const SizedBox(height: 10),
@@ -116,11 +113,9 @@ class _AdminScreenState extends State<AdminScreen> {
                     title: 'Otel Yonetimi',
                     subtitle: '${_stats['total_hotels'] ?? 0} aktif otel',
                     color: AppTheme.accent,
-                    onTap: () => Navigator.push(
+                    onTap: () => pushAppRoute(
                       context,
-                      MaterialPageRoute(
-                        builder: (ctx) => const AdminHotelsScreen(),
-                      ),
+                      const AdminHotelsScreen(),
                     ).then((_) => _loadStats()),
                   ),
                   const SizedBox(height: 10),
@@ -130,11 +125,9 @@ class _AdminScreenState extends State<AdminScreen> {
                     title: 'Transfer Yonetimi',
                     subtitle: '${_stats['total_transfers'] ?? 0} aktif transfer',
                     color: const Color(0xFF0EA5E9),
-                    onTap: () => Navigator.push(
+                    onTap: () => pushAppRoute(
                       context,
-                      MaterialPageRoute(
-                        builder: (ctx) => const AdminTransfersScreen(),
-                      ),
+                      const AdminTransfersScreen(),
                     ).then((_) => _loadStats()),
                   ),
 

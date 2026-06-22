@@ -3,21 +3,21 @@ import 'package:flutter/cupertino.dart';
 import '../models/medical_model.dart';
 import '../models/search_model.dart';
 import '../theme/app_theme.dart';
+import '../theme/tatil_theme.dart';
 import '../services/api_service.dart';
+import '../theme/custom_page_route.dart';
 import 'medical_detail_screen.dart';
 
 class MedicalScreen extends StatefulWidget {
   final SearchModel searchModel;
   final String destinationIata;
   final String cityName;
-  final double flightCostTL;
 
   const MedicalScreen({
     super.key,
     required this.searchModel,
     required this.destinationIata,
     required this.cityName,
-    required this.flightCostTL,
   });
 
   @override
@@ -30,10 +30,10 @@ class _MedicalScreenState extends State<MedicalScreen> {
   String? _selectedType;
 
   final List<Map<String, String>> _filters = [
-    {'value': 'all', 'label': 'Tumu', 'emoji': '🏥'},
-    {'value': 'hair_transplant', 'label': 'Sac Ekimi', 'emoji': '💆'},
-    {'value': 'dental', 'label': 'Dis', 'emoji': '🦷'},
-    {'value': 'eye_laser', 'label': 'Goz Lazer', 'emoji': '👁️'},
+    {'value': 'all', 'label': 'Tümü', 'emoji': '🏥'},
+    {'value': 'hair_transplant', 'label': 'Saç Ekimi', 'emoji': '💆'},
+    {'value': 'dental', 'label': 'Diş', 'emoji': '🦷'},
+    {'value': 'eye_laser', 'label': 'Göz Lazer', 'emoji': '👁️'},
     {'value': 'obesity', 'label': 'Obezite', 'emoji': '⚕️'},
   ];
 
@@ -95,39 +95,28 @@ class _MedicalScreenState extends State<MedicalScreen> {
 
   Widget _buildHeader() {
     return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [AppTheme.teal, AppTheme.teal.withOpacity(0.7)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
+      color: TatilTheme.bgSoft,
       child: SafeArea(
         bottom: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          padding: const EdgeInsets.fromLTRB(8, 8, 16, 12),
           child: Row(
             children: [
               IconButton(
-                icon: const Icon(CupertinoIcons.arrow_left, color: Colors.white),
+                icon: const Icon(CupertinoIcons.arrow_left, color: TatilTheme.textDark),
                 onPressed: () => Navigator.pop(context),
               ),
-              const SizedBox(width: 8),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Saglik & Guzellik Paketleri',
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700),
+                    Text(
+                      'Sağlık paketleri',
+                      style: TatilTheme.title.copyWith(fontSize: 20),
                     ),
                     Text(
                       widget.cityName,
-                      style: TextStyle(
-                          color: Colors.white.withOpacity(0.75), fontSize: 12),
+                      style: TatilTheme.hint,
                     ),
                   ],
                 ),
@@ -224,14 +213,14 @@ class _MedicalScreenState extends State<MedicalScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Vizegoo Medikal Guven Sistemi',
+                      'Onaylı klinikler',
                       style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
                           color: AppTheme.teal),
                     ),
                     Text(
-                      'Tum klinikler dogrulandi ve onaylandi',
+                      'Tüm klinikler doğrulandı',
                       style: TextStyle(fontSize: 11, color: AppTheme.textMuted),
                     ),
                   ],
@@ -242,37 +231,25 @@ class _MedicalScreenState extends State<MedicalScreen> {
           const SizedBox(height: 12),
           Row(
             children: [
-              _trustItem(CupertinoIcons.checkmark_shield, 'Saglik Bakanligi Onaylı'),
+              _trustItem(CupertinoIcons.checkmark_shield, 'Sağlık Bakanlığı'),
               const SizedBox(width: 12),
               _trustItem(CupertinoIcons.star, 'JCI Akredite'),
               const SizedBox(width: 12),
-              _trustItem(CupertinoIcons.person_2, '10.000+ Hasta'),
+              _trustItem(CupertinoIcons.person_2, '10.000+ hasta'),
             ],
           ),
           const SizedBox(height: 12),
-          // Tele-saglik randevu butonu
-          GestureDetector(
-            onTap: () => _showTeleHealthSheet(),
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              decoration: BoxDecoration(
-                color: AppTheme.teal,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(CupertinoIcons.video_camera, color: Colors.white, size: 18),
-                  SizedBox(width: 8),
-                  Text(
-                    'Ucretsiz On Gorusme Randevusu Al',
-                    style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700),
-                  ),
-                ],
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: _showTeleHealthSheet,
+              child: const Text(
+                'Ücretsiz ön görüşme',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.teal,
+                ),
               ),
             ),
           ),
@@ -332,7 +309,7 @@ class _MedicalScreenState extends State<MedicalScreen> {
             ),
             const SizedBox(height: 20),
             const Text(
-              'Ucretsiz On Gorusme',
+              'Ücretsiz ön görüşme',
               style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w700,
@@ -340,7 +317,7 @@ class _MedicalScreenState extends State<MedicalScreen> {
             ),
             const SizedBox(height: 8),
             const Text(
-              'Uzman doktorumuzla 5 dakikalik ucretsiz on gorusme yapabilirsiniz.',
+              'Uzman doktorumuzla kısa bir ön görüşme yapabilirsiniz.',
               style: TextStyle(fontSize: 13, color: AppTheme.textMuted),
             ),
             const SizedBox(height: 20),
@@ -355,7 +332,7 @@ class _MedicalScreenState extends State<MedicalScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Musait Saatler',
+                  const Text('Müsait saatler',
                       style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
@@ -371,7 +348,7 @@ class _MedicalScreenState extends State<MedicalScreen> {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
                                     content: Text(
-                                        '$time randevusu alindi! Size bildirim gonderilecek.'),
+                                        '$time randevusu alındı. Size bildirim gönderilecek.'),
                                     backgroundColor: AppTheme.teal,
                                   ),
                                 );
@@ -430,7 +407,7 @@ class _MedicalScreenState extends State<MedicalScreen> {
         children: [
           const Icon(CupertinoIcons.bandage, size: 48, color: AppTheme.textMuted),
           const SizedBox(height: 16),
-          const Text('Bu kategoride paket bulunamadi.',
+          const Text('Bu kategoride paket bulunamadı.',
               style: TextStyle(color: AppTheme.textMuted, fontSize: 15)),
         ],
       ),
@@ -441,14 +418,13 @@ class _MedicalScreenState extends State<MedicalScreen> {
     final clinic = pkg.clinic;
 
     return GestureDetector(
-      onTap: () => Navigator.push(
+      onTap: () => pushAppRoute(
         context,
-        MaterialPageRoute(
-          builder: (context) => MedicalDetailScreen(
-            package: pkg,
-            searchModel: widget.searchModel,
-            flightCostTL: widget.flightCostTL,
-          ),
+        MedicalDetailScreen(
+          package: pkg,
+          searchModel: widget.searchModel,
+          destinationIata: widget.destinationIata,
+          cityName: widget.cityName,
         ),
       ),
       child: Container(
@@ -464,13 +440,12 @@ class _MedicalScreenState extends State<MedicalScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [AppTheme.teal, AppTheme.teal.withOpacity(0.7)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
+                color: AppTheme.teal.withValues(alpha: 0.08),
                 borderRadius: const BorderRadius.vertical(
                   top: Radius.circular(20),
+                ),
+                border: Border(
+                  bottom: BorderSide(color: AppTheme.border),
                 ),
               ),
               child: Row(
@@ -485,14 +460,14 @@ class _MedicalScreenState extends State<MedicalScreen> {
                         Text(
                           pkg.treatmentNameTr,
                           style: const TextStyle(
-                              color: Colors.white,
+                              color: AppTheme.textPrimary,
                               fontSize: 15,
                               fontWeight: FontWeight.w700),
                         ),
                         Text(
                           clinic?.name ?? '',
-                          style: TextStyle(
-                              color: Colors.white.withOpacity(0.75),
+                          style: const TextStyle(
+                              color: AppTheme.textMuted,
                               fontSize: 12),
                         ),
                         const SizedBox(height: 6),
@@ -501,33 +476,21 @@ class _MedicalScreenState extends State<MedicalScreen> {
                           runSpacing: 4,
                           children: [
                             if (clinic?.isMinistryAccredited == true)
-                              _smallBadge('Bakanlik Onaylı'),
+                              _smallBadge('Bakanlık onaylı'),
                             if (clinic?.isJciAccredited == true)
                               _smallBadge('JCI'),
-                            _smallBadge('%${pkg.successRate.toInt()} Basari'),
+                            _smallBadge('%${pkg.successRate.toInt()} başarı'),
                           ],
                         ),
                       ],
                     ),
                   ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        _formatPrice(pkg.priceTL),
-                        style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700),
-                      ),
-                      if (pkg.priceEur != null)
-                        Text(
-                          '≈ €${pkg.priceEur!.toInt()}',
-                          style: TextStyle(
-                              color: Colors.white.withOpacity(0.7),
-                              fontSize: 12),
-                        ),
-                    ],
+                  Text(
+                    _formatPrice(pkg.priceTL),
+                    style: const TextStyle(
+                        color: AppTheme.teal,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800),
                   ),
                 ],
               ),
@@ -541,13 +504,13 @@ class _MedicalScreenState extends State<MedicalScreen> {
                   Row(
                     children: [
                       _infoChip(CupertinoIcons.calendar,
-                          '${pkg.totalDays} gun'),
+                          '${pkg.totalDays} gün'),
                       const SizedBox(width: 8),
                       _infoChip(CupertinoIcons.bandage,
-                          '${pkg.durationTreatmentDays} gun tedavi'),
+                          '${pkg.durationTreatmentDays} gün tedavi'),
                       const SizedBox(width: 8),
                       _infoChip(CupertinoIcons.house,
-                          '${pkg.durationRestDays} gun dinlenme'),
+                          '${pkg.durationRestDays} gün dinlenme'),
                     ],
                   ),
                   const SizedBox(height: 12),
@@ -560,26 +523,28 @@ class _MedicalScreenState extends State<MedicalScreen> {
                   ),
                   const SizedBox(height: 12),
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      Text(
-                        '${pkg.includes.length} hizmet dahil',
-                        style: const TextStyle(
-                            fontSize: 12, color: AppTheme.textMuted),
+                      Expanded(
+                        child: Text(
+                          '${pkg.includes.length} hizmet dahil',
+                          style: const TextStyle(
+                              fontSize: 12, color: AppTheme.textMuted),
+                        ),
                       ),
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 8),
+                            horizontal: 20, vertical: 10),
                         decoration: BoxDecoration(
                           color: AppTheme.teal,
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(12),
                         ),
                         child: const Text(
-                          'Detaylari Gor',
+                          'İncele',
                           style: TextStyle(
                               color: Colors.white,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600),
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700),
                         ),
                       ),
                     ],
@@ -597,13 +562,13 @@ class _MedicalScreenState extends State<MedicalScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.15),
+        color: AppTheme.teal.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(
         label,
         style: const TextStyle(
-            color: Colors.white, fontSize: 10, fontWeight: FontWeight.w500),
+            color: AppTheme.teal, fontSize: 10, fontWeight: FontWeight.w600),
       ),
     );
   }

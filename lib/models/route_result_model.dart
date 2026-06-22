@@ -190,7 +190,13 @@ class RouteHotelModel {
 
   factory RouteHotelModel.fromNodeJson(
       Map<String, dynamic> json, Map cost, int nights) {
-    final hotelCost = (cost['hotel'] ?? 0).toDouble();
+    final rawHotel = (cost['hotel'] ?? 0).round();
+    final hotelCost = RouteEstimatedCost.normalizeHotelStayTotal(
+      rawHotel: rawHotel,
+      nights: nights,
+      hotelBudget: 0,
+      perNightHotelBudget: 0,
+    );
     return RouteHotelModel(
       id: '',
       name: json['name'] ?? '--',
@@ -199,8 +205,8 @@ class RouteHotelModel {
       starRating: (json['stars'] ?? 3).toDouble(),
       reviewScore: (json['rating'] ?? 7).toDouble(),
       reviewCount: json['reviewCount'] ?? 0,
-      pricePerNight: nights > 0 ? hotelCost / nights : hotelCost,
-      totalPrice: hotelCost,
+      pricePerNight: nights > 0 ? hotelCost / nights : hotelCost.toDouble(),
+      totalPrice: hotelCost.toDouble(),
       features: List<String>.from(json['amenities'] ?? []),
       isPartner: false,
       commissionRate: 0.12,
@@ -252,6 +258,7 @@ class RouteBudgetBreakdown {
   final double totalBudgetTL;
   final double flightBudget;
   final double hotelBudget;
+  final double perNightHotelBudget;
   final double transferBudget;
   final double pocketMoney;
   final int flightPercentage;
@@ -265,6 +272,7 @@ class RouteBudgetBreakdown {
     required this.totalBudgetTL,
     required this.flightBudget,
     required this.hotelBudget,
+    required this.perNightHotelBudget,
     required this.transferBudget,
     required this.pocketMoney,
     required this.flightPercentage,
@@ -280,6 +288,7 @@ class RouteBudgetBreakdown {
       totalBudgetTL: (json['total_budget_tl'] ?? 0).toDouble(),
       flightBudget: (json['flight_budget'] ?? 0).toDouble(),
       hotelBudget: (json['hotel_budget'] ?? 0).toDouble(),
+      perNightHotelBudget: (json['per_night_hotel_budget'] ?? 0).toDouble(),
       transferBudget: (json['transfer_budget'] ?? 0).toDouble(),
       pocketMoney: (json['pocket_money'] ?? 0).toDouble(),
       flightPercentage: json['flight_percentage'] ?? 25,
@@ -300,6 +309,7 @@ class RouteBudgetBreakdown {
       totalBudgetTL: (bd['totalBudgetTL'] ?? 0).toDouble(),
       flightBudget: (transport['total'] ?? 0).toDouble(),
       hotelBudget: (accommodation['total'] ?? 0).toDouble(),
+      perNightHotelBudget: (accommodation['perNightBudget'] ?? 0).toDouble(),
       transferBudget: 0,
       pocketMoney: (pocket['total'] ?? 0).toDouble(),
       flightPercentage: transport['percentage'] ?? 25,
@@ -347,5 +357,32 @@ class RouteEstimatedCost {
       pocketMoney: (json['living'] ?? json['pocket_money'] ?? 0).toInt(),
       remaining: (json['remaining'] ?? 0).toInt(),
     );
+  }
+
+  /// Gateway gecelik otel tutarını konaklama toplamına çevirir (yalnızca gösterim).
+  static int normalizeHotelStayTotal({
+    required int rawHotel,
+    required int nights,
+    required double hotelBudget,
+    required double perNightHotelBudget,
+  }) {
+    if (rawHotel <= 0) return 0;
+    if (nights <= 1) return rawHotel;
+
+    final nightlyCap = perNightHotelBudget > 0
+        ? perNightHotelBudget
+        : (hotelBudget > 0 ? hotelBudget / nights : 0);
+
+    if (nightlyCap > 0) {
+      if (rawHotel <= nightlyCap * 1.15) {
+        return rawHotel * nights;
+      }
+      if (hotelBudget > 0 && rawHotel <= hotelBudget * 1.05) {
+        return rawHotel;
+      }
+    }
+
+    if (rawHotel < 25000) return rawHotel * nights;
+    return rawHotel;
   }
 }

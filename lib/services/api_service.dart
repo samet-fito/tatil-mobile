@@ -1,13 +1,28 @@
-import 'package:supabase_flutter/supabase_flutter.dart';
-import '../models/route_result_model.dart';
+import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../constants.dart';
+import '../data/bundled_destinations.dart';
+import '../data/commission_activities.dart';
+import '../models/route_result_model.dart';
+import '../models/route_search_outcome.dart';
 import '../models/search_model.dart';
+import '../models/flight_leg.dart';
+import '../models/multi_city_search_result.dart';
+import '../utils/price_format.dart';
+import '../utils/spending_estimate_builder.dart';
+import '../models/spending_estimate_model.dart';
+import '../utils/spending_estimate_normalizer.dart';
+import '../utils/live_fx_rate.dart';
+import '../utils/city_search_names.dart';
+import '../utils/live_offer_matcher.dart';
+import '../utils/flight_schedule_format.dart';
+import 'route_search_service.dart';
 
 class ApiService {
   // ============================================================
-  // BAĞLANTI KONTROLÜ
+  // BAĞLANTI
   // ============================================================
   static Future<bool> checkConnection() async {
     try {
@@ -15,35 +30,377 @@ class ApiService {
           .get(Uri.parse(AppConstants.healthEndpoint))
           .timeout(AppConstants.connectTimeout);
       return response.statusCode == 200;
-    } catch (e) {
+    } catch (_) {
       return false;
     }
   }
 
   // ============================================================
-  // PAKET ARAMA
+  // ARAMA (Gateway — gerçek rota motoru)
   // ============================================================
-  static Future<Map<String, dynamic>> searchPackages(SearchModel model) async {
+  static Future<Map<String, dynamic>> _gatewaySearch(SearchModel model) async {
     try {
+      final body = _gatewaySearchBody(model);
+
       final response = await http
           .post(
-            Uri.parse(AppConstants.searchEndpoint),
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode(model.toJson()),
+            Uri.parse(AppConstants.pythonSearchEndpoint),
+            headers: const {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+            body: jsonEncode(body),
           )
-          .timeout(AppConstants.receiveTimeout);
+          .timeout(AppConstants.livePriceTimeout);
 
       if (response.statusCode == 200) {
-        return jsonDecode(response.body);
+        final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+        if (decoded['success'] == true) return decoded;
+        return {
+          'success': false,
+          'error': decoded['error'] ??
+              {
+                'message': 'Arama sunucusu geçerli sonuç döndürmedi.',
+              },
+        };
+      }
+
+      final isWakeUp = response.statusCode == 503 ||
+          response.statusCode == 502 ||
+          response.statusCode == 504;
+
+      if (response.statusCode == 429) {
+        String? serverMsg;
+        try {
+          final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+          final err = decoded['error'];
+          if (err is Map) serverMsg = err['message']?.toString();
+        } catch (_) {}
+        return {
+          'success': false,
+          'error': {
+            'code': 'RATE_LIMIT_EXCEEDED',
+            'message': serverMsg ??
+                'Çok fazla istek gönderildi. Bir dakika bekleyip tekrar deneyin.',
+          },
+        };
       }
 
       return {
         'success': false,
-        'error': {'message': 'Sunucu hatası: ${response.statusCode}'},
+        'error': {
+          'code': isWakeUp ? 'SERVICE_UNAVAILABLE' : 'HTTP_${response.statusCode}',
+          'message': isWakeUp
+              ? 'Arama sunucusu uyanıyor. Birkaç saniye sonra tekrar denenecek.'
+              : 'Arama sunucusu yanıt vermedi (${response.statusCode}).',
+        },
+      };
+    } on TimeoutException {
+      return {
+        'success': false,
+        'error': {'message': 'Sunucu zaman aşımına uğradı.', 'code': 'TIMEOUT'},
       };
     } catch (e) {
-      return _handleError(e, _getMockSearchData(model));
+      return _connectionError(e);
     }
+  }
+
+  static Map<String, dynamic> _gatewaySearchBody(SearchModel model) {
+    final body = <String, dynamic>{
+      'originIata': model.originIata,
+      'departureDate': _formatSearchDate(model.departureDate),
+      'returnDate': _formatSearchDate(model.returnDate),
+      'totalBudgetTL': model.gatewayBudgetTL,
+      'passengers': model.passengers,
+    };
+
+    void putOptional(String key, dynamic value) {
+      if (value == null) return;
+      if (value is String && value.trim().isEmpty) return;
+      if (value is List && value.isEmpty) return;
+      body[key] = value;
+    }
+
+    if (model.children > 0) putOptional('children', model.children);
+    putOptional('continent', model.continent);
+    putOptional('holidayType', model.holidayType);
+    putOptional('holidayTypes', model.holidayTypes);
+    putOptional('destinationIata', model.destinationIata);
+    putOptional('destinationCountry', model.destinationCountry);
+
+    return body;
+  }
+
+  static String _formatSearchDate(DateTime date) {
+    final local = DateTime(date.year, date.month, date.day);
+    return local.toIso8601String().split('T')[0];
+  }
+
+  static List<dynamic> _extractPackages(dynamic inner) {
+    if (inner is List) return inner;
+    if (inner is Map) {
+      final packages = inner['packages'];
+      if (packages is List) return packages;
+    }
+    return const [];
+  }
+
+  static RouteSearchOutcome _parseGatewayResult(Map<String, dynamic> result) {
+    if (result['success'] != true) {
+      final err = result['error'];
+      final message = err is Map ? err['message'] as String? : null;
+      final code = err is Map ? err['code'] as String? : null;
+      final detail = err is Map ? err['detail'] as String? : null;
+      final failure = code == 'TIMEOUT'
+          ? RouteSearchFailure.timeout
+          : code == 'RATE_LIMIT_EXCEEDED'
+              ? RouteSearchFailure.rateLimited
+              : code == 'SERVICE_UNAVAILABLE'
+                  ? RouteSearchFailure.serverError
+                  : _connectionFailureFrom(message, detail);
+      return RouteSearchOutcome(
+        routes: const [],
+        failure: failure,
+        message: message,
+      );
+    }
+
+    final list = _extractPackages(result['data']);
+    final routes = <RouteResultModel>[];
+    var parseFailures = 0;
+
+    for (final item in list) {
+      if (item is! Map) continue;
+      try {
+        routes.add(RouteResultModel.fromJson(Map<String, dynamic>.from(item)));
+      } catch (e, st) {
+        parseFailures++;
+        debugPrint('Route parse failed: $e\n$st');
+      }
+    }
+
+    if (routes.isNotEmpty) {
+      return RouteSearchOutcome(
+        routes: routes,
+        rawPackageCount: list.length,
+        parseFailures: parseFailures,
+      );
+    }
+
+    if (list.isNotEmpty && parseFailures > 0) {
+      return RouteSearchOutcome(
+        routes: const [],
+        failure: RouteSearchFailure.parseError,
+        rawPackageCount: list.length,
+        parseFailures: parseFailures,
+      );
+    }
+
+    return RouteSearchOutcome(
+      routes: const [],
+      failure: RouteSearchFailure.emptyPackages,
+      rawPackageCount: list.length,
+    );
+  }
+
+  static Future<void> _warmGateway() async {
+    for (var attempt = 0; attempt < 3; attempt++) {
+      try {
+        final response = await http
+            .get(Uri.parse(AppConstants.gatewayHealthEndpoint))
+            .timeout(const Duration(seconds: 12));
+        if (response.statusCode == 200) return;
+        if (response.statusCode == 503 ||
+            response.statusCode == 502 ||
+            response.statusCode == 504) {
+          await Future.delayed(Duration(seconds: 2 + attempt * 2));
+          continue;
+        }
+        return;
+      } catch (_) {
+        if (attempt < 2) {
+          await Future.delayed(Duration(seconds: 2 + attempt * 2));
+        }
+      }
+    }
+  }
+
+  static Future<void> warmGateway() async {
+    await _warmGateway();
+    unawaited(warmCatalogProviders());
+  }
+
+  /// Otobüs ve araç kiralama gateway uçlarını ısıtır.
+  static Future<void> warmCatalogProviders() async {
+    final now = DateTime.now();
+    final date = now.toIso8601String().split('T')[0];
+    final pickup = date;
+    final dropoff =
+        now.add(const Duration(days: 3)).toIso8601String().split('T')[0];
+
+    await Future.wait([
+      _pingCatalogEndpoint(
+        AppConstants.busSearchEndpoint,
+        {
+          'from': 'İstanbul',
+          'to': 'Ankara',
+          'date': date,
+          'passengers': '1',
+        },
+      ),
+      _pingCatalogEndpoint(
+        AppConstants.carRentalSearchEndpoint,
+        {
+          'city': 'Antalya',
+          'pickup': pickup,
+          'dropoff': dropoff,
+        },
+      ),
+    ]);
+  }
+
+  static Future<void> _pingCatalogEndpoint(
+    String endpoint,
+    Map<String, String> query,
+  ) async {
+    try {
+      final uri = Uri.parse(endpoint).replace(queryParameters: query);
+      await http.get(uri).timeout(const Duration(seconds: 8));
+    } catch (_) {
+      // Sessiz ısınma — arama sırasında yedek katalog devreye girer.
+    }
+  }
+
+  static Future<RouteSearchOutcome> searchRoutesOutcomeForModel(
+    SearchModel model,
+  ) async {
+    final result = await _gatewaySearch(model);
+    return _parseGatewayResult(result);
+  }
+
+  static Future<RouteSearchOutcome> searchRoutesOutcome({
+    required String originIata,
+    required DateTime departureDate,
+    required DateTime returnDate,
+    required double totalBudgetTL,
+    required int passengers,
+    int children = 0,
+    String? continent,
+    String? holidayType,
+    String? destinationIata,
+    String? destinationCountry,
+    List<String> holidayTypes = const [],
+  }) async {
+    final model = SearchModel(
+      originIata: originIata,
+      departureDate: departureDate,
+      returnDate: returnDate,
+      totalBudgetTL: totalBudgetTL,
+      passengers: passengers,
+      children: children,
+      continent: continent,
+      holidayType: holidayType,
+      holidayTypes: holidayTypes,
+      destinationIata: destinationIata,
+      destinationCountry: destinationCountry,
+    );
+    return searchRoutesOutcomeForModel(model);
+  }
+
+  static Future<List<RouteResultModel>> searchRoutes({
+    required String originIata,
+    required DateTime departureDate,
+    required DateTime returnDate,
+    required double totalBudgetTL,
+    required int passengers,
+    int children = 0,
+    String? continent,
+    String? holidayType,
+    String? destinationIata,
+    String? destinationCountry,
+    List<String> holidayTypes = const [],
+  }) async {
+    final outcome = await searchRoutesOutcome(
+      originIata: originIata,
+      departureDate: departureDate,
+      returnDate: returnDate,
+      totalBudgetTL: totalBudgetTL,
+      passengers: passengers,
+      children: children,
+      continent: continent,
+      holidayType: holidayType,
+      destinationIata: destinationIata,
+      destinationCountry: destinationCountry,
+      holidayTypes: holidayTypes,
+    );
+    return outcome.routes;
+  }
+
+  /// Gateway araması — [RouteSearchService] üzerinden önbellek + retry.
+  static Future<RouteSearchOutcome> searchRoutesWithRetry({
+    required String originIata,
+    required DateTime departureDate,
+    required DateTime returnDate,
+    required double totalBudgetTL,
+    required int passengers,
+    int children = 0,
+    String? continent,
+    String? holidayType,
+    String? destinationIata,
+    String? destinationCountry,
+    List<String> holidayTypes = const [],
+  }) {
+    final model = SearchModel(
+      originIata: originIata,
+      departureDate: departureDate,
+      returnDate: returnDate,
+      totalBudgetTL: totalBudgetTL,
+      passengers: passengers,
+      children: children,
+      continent: continent,
+      holidayType: holidayType,
+      holidayTypes: holidayTypes,
+      destinationIata: destinationIata,
+      destinationCountry: destinationCountry,
+    );
+    return RouteSearchService.search(model);
+  }
+
+  // ============================================================
+  // DESTİNASYONLAR
+  // ============================================================
+  static Future<List<Map<String, dynamic>>> getDestinations() async {
+    for (var attempt = 0; attempt < 2; attempt++) {
+      try {
+        final response = await http
+            .get(Uri.parse(AppConstants.destinationsEndpoint))
+            .timeout(const Duration(seconds: 30));
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body) as Map<String, dynamic>;
+          if (data['success'] == true) {
+            final list =
+                List<Map<String, dynamic>>.from(data['data'] ?? []);
+            if (list.isNotEmpty) return list;
+          }
+        }
+      } catch (_) {
+        if (attempt == 0) {
+          await Future.delayed(const Duration(seconds: 2));
+        }
+      }
+    }
+    return List<Map<String, dynamic>>.from(BundledDestinations.raw);
+  }
+
+  static Future<Map<String, dynamic>?> getDestinationMeta(String iata) async {
+    final list = await getDestinations();
+    final code = iata.toUpperCase();
+    for (final d in list) {
+      if ((d['iataCode'] as String? ?? '').toUpperCase() == code) {
+        return d;
+      }
+    }
+    return null;
   }
 
   // ============================================================
@@ -66,15 +423,182 @@ class ApiService {
       );
       final response =
           await http.get(uri).timeout(AppConstants.receiveTimeout);
-      if (response.statusCode == 200) return jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
       return {'success': false};
     } catch (e) {
-      return _handleError(e, {'success': false});
+      return _connectionError(e);
     }
   }
 
+  static Future<Map<String, dynamic>> getCommissionActivities({
+    required String iata,
+    required String cityName,
+    required String departure,
+    required String returnDate,
+  }) async {
+    final result = await getActivities(
+      iata: iata,
+      city: cityName,
+      departure: departure,
+      returnDate: returnDate,
+    );
+    if (result['success'] == true && result['data'] != null) {
+      try {
+        return {
+          'success': true,
+          'data': CommissionActivities.fromApiActivities(
+            Map<String, dynamic>.from(result['data'] as Map),
+            iata,
+            cityName,
+            tripStart: DateTime.tryParse(departure),
+            tripEnd: DateTime.tryParse(returnDate),
+          ),
+        };
+      } catch (e) {
+        return {
+          'success': false,
+          'error': {'message': e.toString()},
+        };
+      }
+    }
+    return {
+      'success': false,
+      'error': {'message': 'Aktiviteler yüklenemedi.'},
+    };
+  }
+
   // ============================================================
-  // VİZE BİLGİSİ
+  // OTOBÜS
+  // ============================================================
+  static Future<List<Map<String, dynamic>>> searchBusTrips({
+    required String fromCity,
+    required String toCity,
+    required String date,
+    required int passengers,
+  }) async {
+    try {
+      final uri = Uri.parse(AppConstants.busSearchEndpoint).replace(
+        queryParameters: {
+          'from': fromCity,
+          'to': toCity,
+          'date': date,
+          'passengers': '$passengers',
+        },
+      );
+      final response =
+          await http.get(uri).timeout(AppConstants.receiveTimeout);
+      if (response.statusCode != 200) return [];
+      final body = jsonDecode(response.body) as Map<String, dynamic>;
+      if (body['success'] != true) return [];
+      final data = body['data'];
+      if (data is! Map) return [];
+      final trips = data['trips'];
+      if (trips is! List) return [];
+      return trips
+          .whereType<Map>()
+          .map((t) => _normalizeBusTrip(Map<String, dynamic>.from(t)))
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  static Map<String, dynamic> _normalizeBusTrip(Map<String, dynamic> trip) {
+    final dep = trip['departureTime'];
+    DateTime departureTime;
+    if (dep is DateTime) {
+      departureTime = dep;
+    } else if (dep is String) {
+      departureTime = DateTime.tryParse(dep) ?? DateTime.now();
+    } else {
+      departureTime = DateTime.now();
+    }
+    return {
+      ...trip,
+      'departureTime': departureTime,
+      'durationMinutes': (trip['durationMinutes'] as num?)?.toInt() ?? 0,
+      'priceTL': (trip['priceTL'] as num?)?.toInt() ?? 0,
+      'pricePerPersonTL': (trip['pricePerPersonTL'] as num?)?.toInt() ?? 0,
+      'passengers': (trip['passengers'] as num?)?.toInt() ?? 1,
+      'amenities': List<String>.from(trip['amenities'] ?? const []),
+      'source': trip['source'] ?? 'api',
+    };
+  }
+
+  // ============================================================
+  // ARAÇ KİRALAMA
+  // ============================================================
+  static Future<List<Map<String, dynamic>>> searchCarRentals({
+    required String city,
+    required String pickup,
+    required String dropoff,
+  }) async {
+    try {
+      final uri = Uri.parse(AppConstants.carRentalSearchEndpoint).replace(
+        queryParameters: {
+          'city': city,
+          'pickup': pickup,
+          'dropoff': dropoff,
+        },
+      );
+      final response =
+          await http.get(uri).timeout(AppConstants.receiveTimeout);
+      if (response.statusCode != 200) return [];
+      final body = jsonDecode(response.body) as Map<String, dynamic>;
+      if (body['success'] != true) return [];
+      final data = body['data'];
+      if (data is! Map) return [];
+      final vehicles = data['vehicles'];
+      if (vehicles is! List) return [];
+      return vehicles
+          .whereType<Map>()
+          .map((v) => _normalizeCarRental(Map<String, dynamic>.from(v)))
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  static Map<String, dynamic> _normalizeCarRental(Map<String, dynamic> car) {
+    DateTime parseDt(dynamic raw, DateTime fallback) {
+      if (raw is DateTime) return raw;
+      if (raw is String) return DateTime.tryParse(raw) ?? fallback;
+      return fallback;
+    }
+
+    final pickup = parseDt(car['pickup'], DateTime.now());
+    final dropoff = parseDt(car['dropoff'], pickup.add(const Duration(days: 1)));
+
+    return {
+      ...car,
+      'pickup': pickup,
+      'dropoff': dropoff,
+      'days': (car['days'] as num?)?.toInt() ?? 1,
+      'dailyPriceTL': (car['dailyPriceTL'] as num?)?.toInt() ?? 0,
+      'totalPriceTL': (car['totalPriceTL'] as num?)?.toInt() ?? 0,
+      'seats': (car['seats'] as num?)?.toInt() ?? 5,
+      'bags': (car['bags'] as num?)?.toInt() ?? 2,
+      'source': car['source'] ?? 'api',
+    };
+  }
+
+  static List<Map<String, dynamic>> activityItemsFromResponse(
+    Map<String, dynamic>? result,
+  ) {
+    if (result == null || result['success'] != true) return [];
+    final data = result['data'];
+    if (data is! Map) return [];
+    final acts = data['activities'];
+    if (acts is! Map) return [];
+    final within = List<Map<String, dynamic>>.from(acts['withinTrip'] ?? []);
+    final nearby = List<Map<String, dynamic>>.from(acts['nearby'] ?? []);
+    return [...within, ...nearby];
+  }
+
+  // ============================================================
+  // VİZE
   // ============================================================
   static Future<Map<String, dynamic>> getVisaInfo(String countryCode) async {
     try {
@@ -82,15 +606,17 @@ class ApiService {
           .replace(queryParameters: {'countryCode': countryCode});
       final response =
           await http.get(uri).timeout(AppConstants.connectTimeout);
-      if (response.statusCode == 200) return jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
       return {'success': false};
     } catch (e) {
-      return _handleError(e, {'success': false});
+      return _connectionError(e);
     }
   }
 
   // ============================================================
-  // AI CHAT
+  // CHAT
   // ============================================================
   static Future<Map<String, dynamic>> sendChat({
     required String sessionId,
@@ -111,207 +637,544 @@ class ApiService {
             }),
           )
           .timeout(AppConstants.connectTimeout);
-      if (response.statusCode == 200) return jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
       return {'success': false};
     } catch (e) {
-      return _handleError(e, {'success': false});
+      return _connectionError(e);
     }
   }
 
   // ============================================================
-  // HATA YÖNETİMİ
+  // UÇUŞ & OTEL (Duffel / Booking.com)
   // ============================================================
-  static Map<String, dynamic> _handleError(
-    dynamic error,
-    Map<String, dynamic> fallback,
-  ) {
-    final message = error.toString();
 
-    // Bağlantı hatası → mock data ile devam et
-    if (message.contains('SocketException') ||
-        message.contains('TimeoutException') ||
-        message.contains('Connection refused') ||
-        message.contains('NetworkException')) {
-      return fallback;
+  /// Takvim için tek istekte çoklu gün fiyat özeti (uçuş + otel TL).
+  static Future<List<Map<String, dynamic>>> fetchCalendarQuotes({
+    required String originIata,
+    required String destinationIata,
+    required String destinationCity,
+    required List<DateTime> departureDates,
+    required int nights,
+    required int passengers,
+  }) async {
+    if (departureDates.isEmpty) return const [];
+
+    final dates = departureDates
+        .map((d) => d.toIso8601String().split('T')[0])
+        .toList();
+
+    try {
+      final response = await http
+          .post(
+            Uri.parse(AppConstants.calendarQuotesEndpoint),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'originIata': originIata,
+              'destinationIata': destinationIata,
+              'destinationCity': destinationCity,
+              'nights': nights,
+              'passengers': passengers,
+              'dates': dates,
+            }),
+          )
+          .timeout(const Duration(seconds: 90));
+
+      if (response.statusCode == 429) return const [];
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        if (data['success'] == true) {
+          return List<Map<String, dynamic>>.from(data['data'] ?? []);
+        }
+      }
+    } catch (_) {}
+    return const [];
+  }
+
+  static Future<List<Map<String, dynamic>>> searchRealFlights({
+    required String originIata,
+    required String destinationIata,
+    required DateTime departureDate,
+    required DateTime returnDate,
+    required int passengers,
+    bool isRoundTrip = true,
+    String cabinClass = 'economy',
+  }) async {
+    final effectiveReturn =
+        isRoundTrip ? returnDate : departureDate;
+    for (var attempt = 0; attempt < 2; attempt++) {
+      try {
+        final response = await http
+            .post(
+              Uri.parse('${AppConstants.baseUrl}/flights/search'),
+              headers: {'Content-Type': 'application/json'},
+              body: jsonEncode({
+                'originIata': originIata,
+                'destinationIata': destinationIata,
+                'departureDate': departureDate.toIso8601String().split('T')[0],
+                'returnDate': effectiveReturn.toIso8601String().split('T')[0],
+                'passengers': passengers,
+                'isRoundTrip': isRoundTrip,
+                'cabinClass': cabinClass,
+              }),
+            )
+            .timeout(AppConstants.livePriceTimeout);
+
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body) as Map<String, dynamic>;
+          if (data['success'] == true) {
+            final list = List<Map<String, dynamic>>.from(data['data'] ?? []);
+            if (list.isNotEmpty) {
+              LiveFxRate.updateFromFlights(list);
+              final normalized = list.map((f) {
+                final copy = Map<String, dynamic>.from(f);
+                copy['source'] = 'live';
+                final tl = f['totalAmountTL'];
+                if (tl != null) {
+                  copy['totalAmountTL'] = (tl as num).round();
+                }
+                return copy;
+              }).toList();
+              return _enrichFlightsReturnTimes(normalized);
+            }
+          }
+        }
+      } catch (_) {
+        if (attempt == 0) {
+          await Future.delayed(const Duration(seconds: 2));
+        }
+      }
+    }
+    return [];
+  }
+
+  /// Çoklu uçuş — her bacak için tek yön arama.
+  static Future<MultiCitySearchResult> searchMultiCityFlights({
+    required List<FlightLeg> legs,
+    required int passengers,
+    String cabinClass = 'economy',
+  }) async {
+    final results = <MultiCityLegResult>[];
+    for (final leg in legs) {
+      final flights = await searchRealFlights(
+        originIata: leg.originIata,
+        destinationIata: leg.destinationIata,
+        departureDate: leg.departureDate,
+        returnDate: leg.departureDate,
+        passengers: passengers,
+        isRoundTrip: false,
+        cabinClass: cabinClass,
+      );
+      var cheapestIdx = 0;
+      if (flights.length > 1) {
+        var minP = 999999999;
+        for (var i = 0; i < flights.length; i++) {
+          final p = PriceFormat.flightTotalTL(flights[i], roundTrip: false);
+          if (p < minP) {
+            minP = p;
+            cheapestIdx = i;
+          }
+        }
+      }
+      results.add(
+        MultiCityLegResult(
+          leg: leg,
+          flights: flights,
+          selectedFlightIndex: cheapestIdx,
+        ),
+      );
+    }
+    return MultiCitySearchResult(legs: results);
+  }
+
+  /// Duffel teklif detayı — dönüş saatleri eksikse tamamlar.
+  static Future<Map<String, dynamic>?> fetchFlightOffer(String offerId) async {
+    try {
+      final response = await http
+          .get(Uri.parse('${AppConstants.baseUrl}/flights/offer/$offerId'))
+          .timeout(AppConstants.connectTimeout);
+      if (response.statusCode != 200) return null;
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      if (data['success'] != true || data['data'] == null) return null;
+      return Map<String, dynamic>.from(data['data'] as Map);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static const _returnFlightKeys = [
+    'returnDepartureTime',
+    'returnArrivalTime',
+    'returnDuration',
+    'returnStops',
+    'returnOriginIata',
+    'returnDestinationIata',
+  ];
+
+  static Future<List<Map<String, dynamic>>> _enrichFlightsReturnTimes(
+    List<Map<String, dynamic>> flights,
+  ) async {
+    final needsEnrich = flights.any((f) => !FlightScheduleFormat.hasReturnTimes(f));
+    if (!needsEnrich) return flights;
+
+    return Future.wait(
+      flights.map((flight) async {
+        if (FlightScheduleFormat.hasReturnTimes(flight)) return flight;
+        final id = flight['id']?.toString();
+        if (id == null || id.isEmpty) return flight;
+
+        final detailed = await fetchFlightOffer(id);
+        if (detailed == null) return flight;
+
+        final merged = Map<String, dynamic>.from(flight);
+        for (final key in _returnFlightKeys) {
+          final value = detailed[key];
+          if (value != null && value.toString().trim().isNotEmpty) {
+            merged[key] = value;
+          }
+        }
+        return merged;
+      }),
+    );
+  }
+
+  static Future<List<Map<String, dynamic>>> searchHotels({
+    required String cityName,
+    required DateTime checkIn,
+    required DateTime returnDate,
+    required int adults,
+    String? destinationIata,
+    RouteHotelModel? planHotel,
+    int nights = 1,
+    int? targetPerNightTL,
+  }) async {
+    final checkInStr = checkIn.toIso8601String().split('T')[0];
+    final checkOutStr = returnDate.toIso8601String().split('T')[0];
+    final candidates = CitySearchNames.hotelSearchCandidates(
+      cityName,
+      destinationIata ?? '',
+    );
+
+    for (final searchCity in candidates) {
+      for (var attempt = 0; attempt < 2; attempt++) {
+        try {
+          final response = await http.get(
+            Uri.parse(
+              '${AppConstants.baseUrl}/hotels-search/search?cityName=${Uri.encodeComponent(searchCity)}&checkIn=$checkInStr&checkOut=$checkOutStr&adults=$adults',
+            ),
+          ).timeout(AppConstants.livePriceTimeout);
+
+          if (response.statusCode == 200) {
+            final data = jsonDecode(response.body) as Map<String, dynamic>;
+            if (data['success'] == true) {
+              final hotels = List<Map<String, dynamic>>.from(data['data'] ?? []);
+              if (hotels.isNotEmpty) {
+                final normalized = hotels.map((h) {
+                  final n = _normalizeHotel(h, nights: nights);
+                  n['source'] = 'live';
+                  return n;
+                }).toList();
+                final nearPlan = _filterHotelsNearPlan(
+                  hotels: normalized,
+                  targetPerNightTL: targetPerNightTL,
+                );
+                return LiveOfferMatcher.sortHotelsByPlanMatch(
+                  hotels: nearPlan,
+                  planHotel: planHotel,
+                  nights: nights,
+                  targetPerNightTL: targetPerNightTL,
+                );
+              }
+            }
+          }
+        } catch (_) {
+          if (attempt == 0) await Future.delayed(const Duration(seconds: 2));
+        }
+      }
+    }
+    return [];
+  }
+
+  static Map<String, dynamic> _normalizeHotel(
+    Map<String, dynamic> h, {
+    int nights = 1,
+  }) {
+    final copy = Map<String, dynamic>.from(h);
+    final stayNights = (h['nights'] as num?)?.toInt() ?? nights;
+    final currency =
+        (h['currency'] as String?)?.toUpperCase().replaceAll('€', 'EUR') ?? '';
+    final priceScope = h['priceScope']?.toString();
+    final perNightRaw = (h['pricePerNight'] as num?)?.toDouble();
+    final totalRaw = (h['totalPrice'] as num?)?.toDouble();
+
+    int toTl(double amount) {
+      if (currency == 'EUR' || (currency.isEmpty && amount < 500)) {
+        return (amount * LiveFxRate.eurToTl).round();
+      }
+      if (currency == 'USD') {
+        return (amount * LiveFxRate.usdToTl).round();
+      }
+      if (currency == 'TRY' || currency == 'TL') {
+        return amount.round();
+      }
+      return amount.round();
     }
 
-    return {
-      'success': false,
-      'error': {'message': 'Bağlantı hatası. Lütfen internet bağlantınızı kontrol edin.'},
-    };
+    double? stayTotal;
+    if (totalRaw != null && totalRaw > 0) {
+      stayTotal = totalRaw;
+    } else if (perNightRaw != null && perNightRaw > 0) {
+      // Eski backend: grossPrice yalnızca pricePerNight olarak geliyordu (= konaklama toplamı)
+      if (priceScope == 'stay' || stayNights > 1) {
+        stayTotal = perNightRaw;
+      }
+    }
+
+    if (stayTotal != null && stayTotal > 0) {
+      final totalTl = toTl(stayTotal);
+      final perNightTl =
+          stayNights > 0 ? (totalTl / stayNights).round() : totalTl;
+      copy['totalPrice'] = stayTotal;
+      copy['totalPriceTL'] = totalTl;
+      copy['pricePerNight'] =
+          stayNights > 0 ? stayTotal / stayNights : stayTotal;
+      copy['pricePerNightTL'] = perNightTl;
+      copy['nights'] = stayNights;
+      copy['priceScope'] = 'stay';
+    } else if (perNightRaw != null && perNightRaw > 0) {
+      copy['pricePerNightTL'] = toTl(perNightRaw);
+    }
+
+    copy['pricePerNightTL'] ??=
+        PriceFormat.hotelPerNightTL(copy, nights: stayNights);
+    copy['totalPriceTL'] ??= PriceFormat.hotelTotalTL(copy, stayNights);
+
+    for (final key in ['latitude', 'longitude', 'address', 'photoUrl']) {
+      if (h[key] != null) copy[key] = h[key];
+    }
+    return copy;
+  }
+
+  static List<Map<String, dynamic>> _filterHotelsNearPlan({
+    required List<Map<String, dynamic>> hotels,
+    int? targetPerNightTL,
+    int minKeep = 5,
+  }) {
+    if (targetPerNightTL == null || targetPerNightTL <= 0 || hotels.length <= minKeep) {
+      return hotels;
+    }
+    final maxPerNight = (targetPerNightTL * 2.2).round();
+    final filtered = hotels
+        .where((h) {
+          final p = PriceFormat.hotelPerNightTL(h);
+          return p > 0 && p <= maxPerNight;
+        })
+        .toList();
+    return filtered.length >= minKeep ? filtered : hotels;
   }
 
   // ============================================================
-  // MOCK DATA (Backend kapalıyken)
+  // REHBER (API + aktivite verisi)
   // ============================================================
-  static Map<String, dynamic> _getMockSearchData(SearchModel model) {
+  static Future<Map<String, dynamic>> getDestinationGuide({
+    required String iata,
+    required String cityName,
+    required String country,
+    required String departure,
+    required String returnDate,
+  }) async {
+    final meta = await getDestinationMeta(iata);
+    final activitiesResult = await getActivities(
+      iata: iata,
+      city: cityName,
+      departure: departure,
+      returnDate: returnDate,
+    );
+
+    final activities = activityItemsFromResponse(activitiesResult);
+    final places = activities.map((a) {
+      final priceTL = (a['priceTL'] as num?)?.toInt() ?? 0;
+      return {
+        'title': a['title'] ?? '',
+        'subtitle': a['description'] ?? '',
+        'price': priceTL > 0 ? PriceFormat.format(priceTL) : 'Ücretsiz',
+        'emoji': '🎯',
+      };
+    }).toList();
+
+    final smartTips = activities.take(4).map((a) {
+      return {
+        'type': 'activity',
+        'text': '${a['title']}: ${a['description'] ?? ''}',
+      };
+    }).toList();
+
     return {
       'success': true,
       'data': {
-        'packages': [
-          _mockPackage(
-            id: 'dest-001',
-            city: 'Antalya',
-            iata: 'AYT',
-            country: 'Turkey',
-            score: 81,
-            highlights: ['Akdeniz', 'Plajlar', 'Antik Kentler'],
-            airline: 'THY',
-            duration: '1s 10dk',
-            hotelName: 'Akra Hotels',
-            rating: 8.6,
-            budget: model.totalBudgetTL,
-            nights: model.nights,
-            flightRatio: 0.08,
-            hotelRatio: 0.25,
-          ),
-          _mockPackage(
-            id: 'dest-002',
-            city: 'Atina',
-            iata: 'ATH',
-            country: 'Greece',
-            score: 78,
-            highlights: ['Akropolis', 'Antika', 'Deniz'],
-            airline: 'Aegean',
-            duration: '1s 55dk',
-            hotelName: 'Hotel Grande Bretagne',
-            rating: 9.1,
-            budget: model.totalBudgetTL,
-            nights: model.nights,
-            flightRatio: 0.18,
-            hotelRatio: 0.42,
-          ),
-          _mockPackage(
-            id: 'dest-003',
-            city: 'Roma',
-            iata: 'FCO',
-            country: 'Italy',
-            score: 74,
-            highlights: ['Colosseum', 'Vatikan', 'İtalyan Mutfağı'],
-            airline: 'THY',
-            duration: '2s 50dk',
-            hotelName: 'Hassler Roma',
-            rating: 9.3,
-            budget: model.totalBudgetTL,
-            nights: model.nights,
-            flightRatio: 0.22,
-            hotelRatio: 0.45,
-          ),
-          _mockPackage(
-            id: 'dest-004',
-            city: 'Budapeşte',
-            iata: 'BUD',
-            country: 'Hungary',
-            score: 76,
-            highlights: ['Termal Banyolar', 'Ruin Barlar', 'Tuna Nehri'],
-            airline: 'Wizz Air',
-            duration: '2s 20dk',
-            hotelName: 'Pulitzer Budapest',
-            rating: 8.9,
-            budget: model.totalBudgetTL,
-            nights: model.nights,
-            flightRatio: 0.15,
-            hotelRatio: 0.38,
-          ),
-        ],
-        'meta': {
-          'dataSource': 'mock',
-          'processingTimeMs': 120,
-          'cacheHit': false,
+        'essentialInfo': _essentialInfoFromMeta(meta, cityName, country),
+        'smartTips': smartTips,
+        'placesToVisit': places,
+        'mustSee': places
+            .take(3)
+            .map((p) => {'text': p['title'], 'tip': p['subtitle']})
+            .toList(),
+        'rules': const [],
+        'transport': const [],
+        'tips': const [],
+        'foodAndDrink': {
+          'summary': meta?['costIndex'] != null
+              ? '$cityName yaşam maliyeti endeksi: ${meta!['costIndex']}'
+              : '$cityName için güncel fiyatlar API üzerinden yüklenir.',
+          'items': const [],
         },
       },
     };
   }
 
-  static Map<String, dynamic> _mockPackage({
-    required String id,
-    required String city,
+  static List<Map<String, dynamic>> _essentialInfoFromMeta(
+    Map<String, dynamic>? meta,
+    String cityName,
+    String country,
+  ) {
+    final items = <Map<String, dynamic>>[];
+    if (meta != null) {
+      final costLines = <String>[];
+      if (meta['costIndex'] != null) {
+        costLines.add('Yaşam maliyeti endeksi: ${meta['costIndex']}');
+      }
+      if (meta['hotelRatingMin'] != null) {
+        costLines.add('Önerilen minimum otel puanı: ${meta['hotelRatingMin']}');
+      }
+      if (meta['distanceToCenterKm'] != null) {
+        costLines.add('Havalimanından merkeze: ${meta['distanceToCenterKm']} km');
+      }
+      if (costLines.isNotEmpty) {
+        items.add({
+          'title': 'Destinasyon Özeti',
+          'icon': '📍',
+          'items': costLines,
+        });
+      }
+    }
+    items.add({
+      'title': 'Genel',
+      'icon': '📌',
+      'items': [
+        '$cityName, $country',
+        'Fiyatlar Türk Lirası (TL) olarak gösterilir.',
+        'Uçuş ve otel fiyatları canlı API kaynaklarından gelir.',
+      ],
+    });
+    return items;
+  }
+
+  // ============================================================
+  // HARCAMA TAHMİNİ (rota bütçesi + aktivite API)
+  // ============================================================
+  static Future<Map<String, dynamic>> getSpendingEstimates({
     required String iata,
+    required String cityName,
     required String country,
-    required int score,
-    required List<String> highlights,
-    required String airline,
-    required String duration,
-    required String hotelName,
-    required double rating,
-    required double budget,
     required int nights,
-    required double flightRatio,
-    required double hotelRatio,
-  }) {
-    final flight = (budget * flightRatio).toInt();
-    final hotel = (budget * hotelRatio).toInt();
-    final living = (budget * 0.25).toInt();
-    final total = flight + hotel + living;
-    final remaining = (budget - total).toInt();
-    final seg = budget < 25000 ? 'economic' : budget < 60000 ? 'standard' : 'premium';
-    final segLabel = budget < 25000 ? 'Ekonomik' : budget < 60000 ? 'Standart' : 'Premium';
+    required int passengers,
+    int children = 0,
+    String? hotelName,
+    RouteResultModel? route,
+    String? departure,
+    String? returnDate,
+  }) async {
+    final n = nights.clamp(1, 365);
 
+    List<Map<String, dynamic>> activityItems = [];
+    if (departure != null && returnDate != null) {
+      final act = await getActivities(
+        iata: iata,
+        city: cityName,
+        departure: departure,
+        returnDate: returnDate,
+      );
+      activityItems = activityItemsFromResponse(act);
+    }
+
+    final meta = await getDestinationMeta(iata);
+    final costIndex = (meta?['costIndex'] as num?)?.toDouble();
+
+    final est = SpendingEstimateBuilder.fromDestination(
+      cityName: cityName,
+      iata: iata,
+      country: country,
+      nights: n,
+      passengers: passengers,
+      children: children,
+      costIndex: costIndex,
+      activityItems: activityItems,
+    );
+    return _spendingMapFromEstimate(
+      est,
+      source: costIndex != null ? 'index' : 'averages',
+      cityName: cityName,
+      costIndex: costIndex,
+    );
+  }
+
+  static Map<String, dynamic> _spendingMapFromEstimate(
+    SpendingEstimate est, {
+    required String source,
+    required String cityName,
+    double? costIndex,
+  }) {
     return {
-      'destinationId': id,
-      'cityName': city,
-      'iataCode': iata,
-      'country': country,
-      'countryCode': '',
-      'score': score,
-      'isAffordable': remaining > 0,
-      'nights': nights,
-      'highlights': highlights,
-      'flightInfo': {
-        'airline': airline,
-        'duration': duration,
-        'stops': 0,
-        'departureTime': '09:00',
-        'arrivalTime': '11:30',
-      },
-      'hotelInfo': {
-        'name': hotelName,
-        'stars': 5,
-        'rating': rating,
-        'reviewCount': 1500,
-        'amenities': ['WiFi', 'Havuz', 'Spa'],
-      },
-      'estimatedCost': {
-        'total': total,
-        'flight': flight,
-        'hotel': hotel,
-        'living': living,
-        'remaining': remaining,
-      },
-      'budgetBreakdown': {
-        'segment': seg,
-        'segmentLabel': segLabel,
-        'breakdown': {
-          'transport': {'total': (budget * 0.25).toInt(), 'percentage': 25, 'label': 'Ulaşım'},
-          'accommodation': {'total': (budget * 0.40).toInt(), 'percentage': 40, 'label': 'Konaklama'},
-          'pocketMoney': {'total': (budget * 0.35).toInt(), 'percentage': 35, 'label': 'Harçlık'},
-        },
-      },
+      'foodSummary': est.dailyFoodPerPersonTL > 0 || est.dailyTransportPerPersonTL > 0
+          ? SpendingEstimateNormalizer.dailyBreakdownLine(
+              est.dailyFoodPerPersonTL,
+              est.dailyTransportPerPersonTL,
+            )
+          : est.foodSummary,
+      'foodItems': est.foodItems,
+      'dailyFoodPerPersonTL': est.dailyFoodPerPersonTL,
+      'totalFoodTL': est.totalFoodTL,
+      'dailyTransportPerPersonTL': est.dailyTransportPerPersonTL,
+      'estimatedLocalTransportTL': est.estimatedLocalTransportTL,
+      'effectivePeople': est.effectivePeople,
+      'foodScopeLabel': costIndex != null
+          ? '$cityName · maliyet endeksi ${costIndex.toStringAsFixed(1)}'
+          : est.foodScopeLabel,
+      'transportScopeLabel': est.transportScopeLabel,
+      'attractions': est.attractions,
+      'totalAttractionsTL': est.totalAttractionsTL,
+      'localTransport': est.localTransport,
+      'hotelRoutes': est.hotelRoutes,
+      'grandTotalTL': est.grandTotalTL,
+      'perPersonPerDayTL': est.perPersonPerDayTL,
+      'disclaimer': est.disclaimer,
+      'source': source,
     };
   }
-// ============================================================
+
+  // ============================================================
   // SAĞLIK TURİZMİ
   // ============================================================
- static Future<List<Map<String, dynamic>>> getMedicalPackages({
-  required String iata,
-  required double budget,
-}) async {
-  try {
-    final uri = Uri.parse(AppConstants.baseUrl + '/medical/packages')
-        .replace(queryParameters: {
-      'iata': iata,
-      'budget': budget.toString(),
-    });
-    final response = await http.get(uri).timeout(AppConstants.receiveTimeout);
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      final packages = List<Map<String, dynamic>>.from(data['data'] ?? []);
-      if (packages.isNotEmpty) return packages;
-    }
-  } catch (e) {}
-  // Her zaman mock data döndür
-  return _getMockMedicalPackages(iata);
-}
+  static Future<List<Map<String, dynamic>>> getMedicalPackages({
+    required String iata,
+    required double budget,
+  }) async {
+    try {
+      final uri = Uri.parse('${AppConstants.baseUrl}/medical/packages')
+          .replace(queryParameters: {
+        'iata': iata,
+        'budget': budget.toString(),
+      });
+      final response = await http.get(uri).timeout(AppConstants.receiveTimeout);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        return List<Map<String, dynamic>>.from(data['data'] ?? []);
+      }
+    } catch (_) {}
+    return [];
+  }
 
   static Future<Map<String, dynamic>> saveMedicalBooking({
     required String sessionId,
@@ -327,7 +1190,7 @@ class ApiService {
   }) async {
     try {
       final response = await http.post(
-        Uri.parse(AppConstants.baseUrl + '/medical/booking'),
+        Uri.parse('${AppConstants.baseUrl}/medical/booking'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'sessionId': sessionId,
@@ -342,308 +1205,68 @@ class ApiService {
           'commissionTL': commissionTL,
         }),
       ).timeout(AppConstants.receiveTimeout);
-      if (response.statusCode == 200) return jsonDecode(response.body);
-    } catch (e) {}
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+    } catch (_) {}
     return {'success': false};
   }
 
-  static List<Map<String, dynamic>> _getMockMedicalPackages(String iata) {
-    return [
-      {
-        'id': 'med-001',
-        'clinic_id': 'clinic-001',
-        'treatment_type': 'hair_transplant',
-        'treatment_name': 'FUE Hair Transplant (4000 Grafts)',
-        'treatment_name_tr': 'FUE Saç Ekimi (4000 Greft)',
-        'description': 'En son FUE tekniğiyle kalıcı saç ekimi.',
-        'duration_treatment_days': 2,
-        'duration_rest_days': 3,
-        'price_tl': 45000,
-        'price_eur': 1250,
-        'includes': ['Konsültasyon', 'Operasyon', 'PRP', 'İlaçlar', 'VIP Transfer'],
-        'success_rate': 97.5,
-        'commission_rate': 0.22,
-        'medical_clinics': {
-          'id': 'clinic-001',
-          'name': 'Antalya Hair & Aesthetic Center',
-          'city_name': 'Antalya',
-          'success_score': 9.4,
-          'patient_count': 12500,
-          'is_ministry_accredited': true,
-          'is_jci_accredited': true,
-          'specializations': ['Saç Ekimi', 'Diş Estetiği'],
-          'languages': ['Türkçe', 'İngilizce', 'Almanca'],
-          'commission_rate': 0.22,
-        },
-      },
-      {
-        'id': 'med-002',
-        'clinic_id': 'clinic-002',
-        'treatment_type': 'dental',
-        'treatment_name': 'Full Mouth Dental Veneers',
-        'treatment_name_tr': 'Tam Ağız Diş Kaplaması',
-        'description': 'Zirkonyum kaplama ile mükemmel gülüş.',
-        'duration_treatment_days': 3,
-        'duration_rest_days': 2,
-        'price_tl': 38000,
-        'price_eur': 1050,
-        'includes': ['Konsültasyon', 'Röntgen', 'Kaplama', 'VIP Transfer'],
-        'success_rate': 98.2,
-        'commission_rate': 0.20,
-        'medical_clinics': {
-          'id': 'clinic-002',
-          'name': 'MedAntalya Clinic',
-          'city_name': 'Antalya',
-          'success_score': 9.2,
-          'patient_count': 8900,
-          'is_ministry_accredited': true,
-          'is_jci_accredited': false,
-          'specializations': ['Diş Estetiği', 'İmplant'],
-          'languages': ['Türkçe', 'İngilizce'],
-          'commission_rate': 0.20,
-        },
-      },
-    ];
-  }
-// ============================================================
-  // PYTHON ROTA MOTORU
-  // ============================================================
-  static Future<List<RouteResultModel>> searchRoutes({
-  required String originIata,
-  required DateTime departureDate,
-  required DateTime returnDate,
-  required double totalBudgetTL,
-  required int passengers,
-}) async {
-  try {
-    final response = await http.post(
-      Uri.parse(AppConstants.pythonSearchEndpoint),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'originIata': originIata,
-        'departureDate': departureDate.toIso8601String().split('T')[0],
-        'returnDate': returnDate.toIso8601String().split('T')[0],
-        'totalBudgetTL': totalBudgetTL,
-        'passengers': passengers,
-      }),
-    ).timeout(AppConstants.receiveTimeout);
-
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      if (data['success'] == true) {
-        final innerData = data['data'];
-        List list = [];
-
-        if (innerData is List) {
-          list = innerData;
-        } else if (innerData is Map) {
-          if (innerData['packages'] != null) {
-            list = innerData['packages'] as List;
-          }
-        }
-
-        if (list.isNotEmpty) {
-          return list
-              .map((item) => RouteResultModel.fromJson(
-                  item as Map<String, dynamic>))
-              .toList();
-        }
-      }
-    }
-  } catch (e) {
-    // Mock data döndür
-  }
-  return _getMockRouteResults(
-    originIata,
-    departureDate,
-    returnDate,
-    totalBudgetTL,
-    passengers,
-  );
-}
-
-  static List<RouteResultModel> _getMockRouteResults(
-    String originIata,
-    DateTime departureDate,
-    DateTime returnDate,
-    double budget,
-    int passengers,
-  ) {
-    final nights = returnDate.difference(departureDate).inDays;
-    final seg = budget < 25000 ? 'economic' : budget < 60000 ? 'standard' : 'premium';
-    final segLabel = budget < 25000 ? 'Ekonomik' : budget < 60000 ? 'Standart' : 'Premium';
-
-    Map<String, dynamic> breakdown(double b) => {
-      'segment': seg,
-      'segment_label': segLabel,
-      'total_budget_tl': b,
-      'flight_budget': (b * 0.25).toInt(),
-      'hotel_budget': (b * 0.40).toInt(),
-      'transfer_budget': (b * 0.05).toInt(),
-      'pocket_money': (b * 0.30).toInt(),
-      'flight_percentage': 25,
-      'hotel_percentage': 40,
-      'transfer_percentage': 5,
-      'pocket_percentage': 30,
-    };
-
-    return [
-      RouteResultModel.fromJson({
-        'destination_iata': 'AYT',
-        'city_name': 'Antalya',
-        'country': 'Turkey',
-        'nights': nights,
-        'passengers': passengers,
-        'score': 100.0,
-        'is_affordable': true,
-        'flight': {'airline': 'THY', 'duration': '1s 10dk', 'stops': 0, 'departure_time': '09:00', 'arrival_time': '10:10', 'price_tl': (budget * 0.08).toInt(), 'price_per_person_tl': (budget * 0.08 / passengers).toInt()},
-        'hotel': {'id': 'h1', 'name': 'Kaleiçi Butik Otel', 'city': 'Antalya', 'hotel_type': 'boutique', 'star_rating': 4.0, 'review_score': 8.8, 'review_count': 342, 'price_per_night': (budget * 0.06).toInt(), 'total_price': (budget * 0.06 * nights).toInt(), 'features': ['WiFi', 'Kahvaltı', 'Klima'], 'is_partner': true},
-        'transfer': {'id': 't1', 'company_name': 'Antalya VIP', 'vehicle_type': 'sedan', 'capacity': 4, 'route_from': 'Havalimanı', 'route_to': 'Merkez', 'price_fixed': (budget * 0.02).toInt(), 'duration_minutes': 30, 'features': ['Klima', 'WiFi']},
-        'budget_breakdown': breakdown(budget),
-        'estimated_cost': {'total': (budget * 0.50).toInt(), 'flight': (budget * 0.08).toInt(), 'hotel': (budget * 0.12).toInt(), 'transfer': (budget * 0.02).toInt(), 'pocket_money': (budget * 0.28).toInt(), 'remaining': (budget * 0.50).toInt()},
-        'alternative_suggestion': null,
-      }),
-      RouteResultModel.fromJson({
-        'destination_iata': 'ATH',
-        'city_name': 'Atina',
-        'country': 'Greece',
-        'nights': nights,
-        'passengers': passengers,
-        'score': 88.0,
-        'is_affordable': true,
-        'flight': {'airline': 'Aegean', 'duration': '1s 55dk', 'stops': 0, 'departure_time': '13:20', 'arrival_time': '15:15', 'price_tl': (budget * 0.18).toInt(), 'price_per_person_tl': (budget * 0.18 / passengers).toInt()},
-        'hotel': {'id': 'h2', 'name': 'Atina Plaka Pansiyon', 'city': 'Atina', 'hotel_type': 'pension', 'star_rating': 3.0, 'review_score': 8.4, 'review_count': 445, 'price_per_night': (budget * 0.05).toInt(), 'total_price': (budget * 0.05 * nights).toInt(), 'features': ['WiFi', 'Akropolis Manzarası'], 'is_partner': true},
-        'transfer': {'id': 't2', 'company_name': 'Athens Transfer', 'vehicle_type': 'sedan', 'capacity': 4, 'route_from': 'Havalimanı', 'route_to': 'Plaka', 'price_fixed': (budget * 0.04).toInt(), 'duration_minutes': 40, 'features': ['Klima', 'WiFi']},
-        'budget_breakdown': breakdown(budget),
-        'estimated_cost': {'total': (budget * 0.77).toInt(), 'flight': (budget * 0.18).toInt(), 'hotel': (budget * 0.25).toInt(), 'transfer': (budget * 0.04).toInt(), 'pocket_money': (budget * 0.30).toInt(), 'remaining': (budget * 0.23).toInt()},
-        'alternative_suggestion': null,
-      }),
-      RouteResultModel.fromJson({
-        'destination_iata': 'BUD',
-        'city_name': 'Budapeşte',
-        'country': 'Hungary',
-        'nights': nights,
-        'passengers': passengers,
-        'score': 45.0,
-        'is_affordable': false,
-        'flight': {'airline': 'Wizz Air', 'duration': '2s 20dk', 'stops': 0, 'departure_time': '09:00', 'arrival_time': '11:20', 'price_tl': (budget * 0.30).toInt(), 'price_per_person_tl': (budget * 0.30 / passengers).toInt()},
-        'hotel': {'id': 'h3', 'name': 'Budapeşte Ruin Apart', 'city': 'Budapeşte', 'hotel_type': 'apart', 'star_rating': 3.0, 'review_score': 8.6, 'review_count': 523, 'price_per_night': (budget * 0.06).toInt(), 'total_price': (budget * 0.06 * nights).toInt(), 'features': ['WiFi', 'Mutfak'], 'is_partner': true},
-        'transfer': null,
-        'budget_breakdown': breakdown(budget),
-        'estimated_cost': {'total': (budget * 1.06).toInt(), 'flight': (budget * 0.30).toInt(), 'hotel': (budget * 0.30).toInt(), 'transfer': 0, 'pocket_money': (budget * 0.30).toInt(), 'remaining': -(budget * 0.06).toInt()},
-        'alternative_suggestion': 'Konaklama süresini ${nights - 2} geceye indirirsen bütçene uygun hale gelir.',
-      }),
-    ];
-  }
-// ============================================================
-  // FLAŞ SAĞLIK PAKETLERİ
-  // ============================================================
-  static Future<List<Map<String, dynamic>>> getFlashDeals() async {
+  static Future<bool> registerClinic({
+    required String name,
+    required String specialty,
+    required String cityName,
+    required String contactEmail,
+    required String contactPhone,
+    required String website,
+    required String address,
+  }) async {
     try {
-      final supabase = Supabase.instance.client;
-      final result = await supabase
-          .from('treatments')
-          .select('*, clinics(name, city_name, rating)')
-          .eq('is_flash_deal', true)
-          .eq('is_active', true)
-          .gt('flash_available_slots', 0)
-          .order('flash_discount_percent', ascending: false)
-          .limit(5);
-
-      return List<Map<String, dynamic>>.from(result);
-    } catch (e) {
-      return [];
+      final response = await http.post(
+        Uri.parse('${AppConstants.baseUrl}/clinics/register'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'name': name,
+          'specialty': specialty,
+          'city_name': cityName,
+          'contact_email': contactEmail,
+          'contact_phone': contactPhone,
+          'website': website,
+          'address': address,
+          'country': 'Turkey',
+        }),
+      ).timeout(AppConstants.receiveTimeout);
+      return response.statusCode == 201;
+    } catch (_) {
+      return false;
     }
   }
-// ============================================================
-// DUFFEL GERÇEK UÇUŞ FİYATLARI
-// ============================================================
-static Future<List<Map<String, dynamic>>> searchRealFlights({
-  required String originIata,
-  required String destinationIata,
-  required DateTime departureDate,
-  required DateTime returnDate,
-  required int passengers,
-}) async {
-  try {
-    final response = await http.post(
-      Uri.parse('${AppConstants.baseUrl}/flights/search'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'originIata': originIata,
-        'destinationIata': destinationIata,
-        'departureDate': departureDate.toIso8601String().split('T')[0],
-        'returnDate': returnDate.toIso8601String().split('T')[0],
-        'passengers': passengers,
-      }),
-    ).timeout(AppConstants.receiveTimeout);
 
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      if (data['success'] == true) {
-        return List<Map<String, dynamic>>.from(data['data'] ?? []);
-      }
+  // ============================================================
+  // HATA
+  // ============================================================
+  static RouteSearchFailure _connectionFailureFrom(
+    String? message,
+    String? detail,
+  ) {
+    final haystack = '${message ?? ''} ${detail ?? ''}'.toLowerCase();
+    if (haystack.contains('bağlanılamadı') ||
+        haystack.contains('socketexception') ||
+        haystack.contains('failed host lookup') ||
+        haystack.contains('network is unreachable')) {
+      return RouteSearchFailure.connection;
     }
-  } catch (e) {
-    // Mock döndür
+    return RouteSearchFailure.serverError;
   }
-  return [];
-}
-static Future<bool> registerClinic({
-  required String name,
-  required String specialty,
-  required String cityName,
-  required String contactEmail,
-  required String contactPhone,
-  required String website,
-  required String address,
-}) async {
-  try {
-    final response = await http.post(
-      Uri.parse('${AppConstants.baseUrl}/clinics/register'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'name': name,
-        'specialty': specialty,
-        'city_name': cityName,
-        'contact_email': contactEmail,
-        'contact_phone': contactPhone,
-        'website': website,
-        'address': address,
-        'country': 'Turkey',
-      }),
-    ).timeout(AppConstants.receiveTimeout);
 
-    return response.statusCode == 201;
-  } catch (e) {
-    return false;
+  static Map<String, dynamic> _connectionError(dynamic error) {
+    return {
+      'success': false,
+      'error': {
+        'message':
+            'Sunucuya bağlanılamadı. İnternet bağlantınızı kontrol edin.',
+        'detail': error.toString(),
+      },
+    };
   }
-}
-static Future<List<Map<String, dynamic>>> searchHotels({
-  required String cityName,
-  required DateTime checkIn,
-  required DateTime returnDate,
-  required int adults,
-}) async {
-  try {
-    final checkInStr = checkIn.toIso8601String().split('T')[0];
-    final checkOutStr = returnDate.toIso8601String().split('T')[0];
-    print("HOTEL: $cityName $checkInStr");
-    final response = await http.get(
-      Uri.parse(
-        '${AppConstants.baseUrl}/hotels-search/search?cityName=${Uri.encodeComponent(cityName)}&checkIn=$checkInStr&checkOut=$checkOutStr&adults=$adults',
-      ),
-    ).timeout(const Duration(seconds: 15));
-
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      if (data['success'] == true) {
-        return List<Map<String, dynamic>>.from(data['data'] ?? []);
-      }
-    }
-  } catch (e) {
-    // ignore
-  }
-  return [];
-}
 }

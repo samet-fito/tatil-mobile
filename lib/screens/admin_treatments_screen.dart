@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/admin_service.dart';
 import '../theme/app_theme.dart';
+import '../utils/price_format.dart';
 
 class AdminTreatmentsScreen extends StatefulWidget {
   final String clinicId;
@@ -221,7 +222,7 @@ class _AdminTreatmentsScreenState extends State<AdminTreatmentsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
-                      '€${t['price_eur']?.toInt() ?? 0}',
+                      PriceFormat.format(((t['price_tl'] ?? (t['price_eur'] ?? 0) * PriceFormat.eurToTl) as num).round()),
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w700,
@@ -231,7 +232,7 @@ class _AdminTreatmentsScreenState extends State<AdminTreatmentsScreen> {
                     ),
                     if (isFlash)
                       Text(
-                        '€${((t['price_eur'] ?? 0) * (1 - discount / 100)).toInt()}',
+                        PriceFormat.format((((t['price_tl'] ?? (t['price_eur'] ?? 0) * PriceFormat.eurToTl) as num) * (1 - discount / 100)).round()),
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
@@ -317,7 +318,6 @@ class _TreatmentFormSheetState extends State<TreatmentFormSheet> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameCtrl;
   late TextEditingController _nameTrCtrl;
-  late TextEditingController _priceEurCtrl;
   late TextEditingController _priceTlCtrl;
   late TextEditingController _durationCtrl;
   late TextEditingController _recoveryCtrl;
@@ -337,7 +337,6 @@ class _TreatmentFormSheetState extends State<TreatmentFormSheet> {
     final t = widget.treatment;
     _nameCtrl = TextEditingController(text: t?['treatment_name'] ?? '');
     _nameTrCtrl = TextEditingController(text: t?['treatment_name_tr'] ?? '');
-    _priceEurCtrl = TextEditingController(text: t?['price_eur']?.toString() ?? '');
     _priceTlCtrl = TextEditingController(text: t?['price_tl']?.toString() ?? '');
     _durationCtrl = TextEditingController(text: t?['duration_days']?.toString() ?? '1');
     _recoveryCtrl = TextEditingController(text: t?['recovery_days']?.toString() ?? '0');
@@ -358,7 +357,6 @@ class _TreatmentFormSheetState extends State<TreatmentFormSheet> {
   void dispose() {
     _nameCtrl.dispose();
     _nameTrCtrl.dispose();
-    _priceEurCtrl.dispose();
     _priceTlCtrl.dispose();
     _durationCtrl.dispose();
     _recoveryCtrl.dispose();
@@ -374,8 +372,8 @@ class _TreatmentFormSheetState extends State<TreatmentFormSheet> {
       'treatment_name': _nameCtrl.text,
       'treatment_name_tr': _nameTrCtrl.text,
       'category': _category,
-      'price_eur': double.tryParse(_priceEurCtrl.text) ?? 0,
-      'price_tl': double.tryParse(_priceTlCtrl.text),
+      'price_tl': double.tryParse(_priceTlCtrl.text) ?? 0,
+      'price_eur': (double.tryParse(_priceTlCtrl.text) ?? 0) / PriceFormat.eurToTl,
       'duration_days': int.tryParse(_durationCtrl.text) ?? 1,
       'recovery_days': int.tryParse(_recoveryCtrl.text) ?? 0,
       'success_rate': double.tryParse(_successCtrl.text) ?? 95.0,
@@ -453,13 +451,7 @@ class _TreatmentFormSheetState extends State<TreatmentFormSheet> {
                 onChanged: (v) => setState(() => _category = v ?? _category),
               ),
               const SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(child: _field(_priceEurCtrl, 'Fiyat (€)', '1250', isNumber: true)),
-                  const SizedBox(width: 10),
-                  Expanded(child: _field(_priceTlCtrl, 'Fiyat (TL)', '45000', isNumber: true)),
-                ],
-              ),
+              _field(_priceTlCtrl, 'Fiyat (TL)', '45000', isNumber: true),
               const SizedBox(height: 10),
               Row(
                 children: [

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
+import '../theme/custom_page_route.dart';
 import '../screens/guest_info_screen.dart';
+import '../widgets/social_icon_buttons.dart';
 
 class CheckoutAuthSheet extends StatefulWidget {
   final String cityName;
@@ -63,26 +65,26 @@ class _CheckoutAuthSheetState extends State<CheckoutAuthSheet> {
     }
   }
 
-  Future<void> _signInWithApple() async {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Apple girişi yakında aktif olacak.'),
-        backgroundColor: Colors.black,
-        duration: Duration(seconds: 2),
-      ),
-    );
+  Future<void> _signInWithFacebook() async {
+    setState(() => _isLoading = true);
+    final success = await AuthService.signInWithFacebook();
+    if (mounted) {
+      setState(() => _isLoading = false);
+      if (success) {
+        Navigator.pop(context);
+        widget.onSuccess();
+      }
+    }
   }
 
   void _continueWithoutLogin() {
     Navigator.pop(context);
-    Navigator.push(
+    pushAppRoute(
       context,
-      MaterialPageRoute(
-        builder: (context) => GuestInfoScreen(
-          cityName: widget.cityName,
-          totalPrice: widget.totalPrice,
-          onComplete: widget.onSuccess,
-        ),
+      GuestInfoScreen(
+        cityName: widget.cityName,
+        totalPrice: widget.totalPrice,
+        onComplete: widget.onSuccess,
       ),
     );
   }
@@ -145,22 +147,12 @@ class _CheckoutAuthSheetState extends State<CheckoutAuthSheet> {
 
           const SizedBox(height: 28),
 
-          // Google butonu
-          _buildButton(
-            label: 'Google ile Giriş Yap',
-            bgColor: Colors.white,
-            textColor: const Color(0xFF1F1F1F),
-            onTap: _isLoading ? null : _signInWithGoogle,
-            isLoading: _isLoading,
-          ),
-          const SizedBox(height: 12),
-
-          // Apple butonu
-          _buildButton(
-            label: 'Apple ile Giriş Yap',
-            bgColor: Colors.black,
-            textColor: Colors.white,
-            onTap: _isLoading ? null : _signInWithApple,
+          Center(
+            child: SocialIconButtons(
+              loading: _isLoading,
+              onGoogle: _signInWithGoogle,
+              onFacebook: _signInWithFacebook,
+            ),
           ),
           const SizedBox(height: 20),
 
