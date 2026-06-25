@@ -16,6 +16,7 @@ import '../widgets/advisor_insights_sections.dart';
 import '../widgets/destination_hero_image.dart';
 import '../widgets/hero_page_scroll.dart';
 import '../widgets/holiday_type_match_hint.dart';
+import '../widgets/destination_discovery_sections.dart';
 import 'commission_activities_screen.dart';
 
 /// Post-booking seyahat rehberi — hava, kurallar, hayati uyarılar, ipuçları.
@@ -382,10 +383,20 @@ class _DestinationGuideScreenState extends State<DestinationGuideScreen> {
                       onOpenTicketUrl: _openTicketUrl,
                     ),
                   ],
-                  if (_activitiesData != null) ...[
-                    const SizedBox(height: 8),
-                    _activitiesCta(),
-                  ],
+                  const SizedBox(height: 8),
+                  DestinationDiscoverySections(
+                    cityName: widget.cityName,
+                    country: widget.country,
+                    destinationIata: widget.destinationIata,
+                    nights: widget.nights,
+                    adults: widget.adults,
+                    holidayTypes: widget.holidayTypes,
+                    activitiesData: _activitiesData,
+                    departureDate: widget.departureDate,
+                    returnDate: widget.returnDate,
+                    onViewAllActivities:
+                        _activitiesData != null ? _openActivities : null,
+                  ),
                   const SizedBox(height: 16),
                   _disclaimer(_guide!.disclaimer),
                 ]),

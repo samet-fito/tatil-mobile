@@ -43,34 +43,64 @@ class _Payment3DSecureBody extends StatefulWidget {
 enum _Phase { redirect, sms, processing, done }
 
 class _Payment3DSecureBodyState extends State<_Payment3DSecureBody> {
+  static const int _smsCodeLength = 6;
+
   _Phase _phase = _Phase.redirect;
   final _smsCtrl = TextEditingController();
+  final _smsFocus = FocusNode();
   String? _error;
   bool _success = false;
+  bool _verifying = false;
 
   @override
   void initState() {
     super.initState();
+    _smsCtrl.addListener(_onSmsTextChanged);
     Future.delayed(const Duration(seconds: 2), () {
       if (mounted && _phase == _Phase.redirect) {
         setState(() => _phase = _Phase.sms);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && _phase == _Phase.sms) {
+            _smsFocus.requestFocus();
+          }
+        });
       }
     });
   }
 
+  void _onSmsTextChanged() {
+    if (_phase != _Phase.sms || _verifying) return;
+    final code = _smsCtrl.text;
+    if (code.length >= _smsCodeLength) {
+      _smsFocus.unfocus();
+      _verifySms();
+    }
+  }
+
+  void _dismissKeyboard() {
+    FocusManager.instance.primaryFocus?.unfocus();
+  }
+
   @override
   void dispose() {
+    _smsCtrl.removeListener(_onSmsTextChanged);
     _smsCtrl.dispose();
+    _smsFocus.dispose();
     super.dispose();
   }
 
   Future<void> _verifySms() async {
+    if (_verifying || _phase != _Phase.sms) return;
+
     final code = _smsCtrl.text.trim();
     if (code.length < 4) {
       setState(() => _error = 'Doğrulama kodunu girin');
       return;
     }
+
+    _dismissKeyboard();
     setState(() {
+      _verifying = true;
       _error = null;
       _phase = _Phase.processing;
     });
@@ -86,21 +116,54 @@ class _Payment3DSecureBodyState extends State<_Payment3DSecureBody> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: EdgeInsets.only(top: MediaQuery.of(context).size.height * 0.12),
-      decoration: const BoxDecoration(
-        color: AppTheme.bgSecondary,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    final screenH = MediaQuery.sizeOf(context).height;
+    final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
+
+    return SizedBox(
+      height: screenH,
+      child: GestureDetector(
+        onTap: _dismissKeyboard,
+        behavior: HitTestBehavior.opaque,
+        child: Column(
+          children: [
+            const Spacer(),
+            AnimatedPadding(
+              duration: const Duration(milliseconds: 120),
+              curve: Curves.easeOut,
+              padding: EdgeInsets.only(bottom: keyboardInset),
+              child: GestureDetector(
+                onTap: _dismissKeyboard,
+                behavior: HitTestBehavior.translucent,
+                child: Container(
+                  decoration: const BoxDecoration(
+                    color: AppTheme.bgSecondary,
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                  ),
+                  padding: EdgeInsets.fromLTRB(
+                    20,
+                    16,
+                    20,
+                    MediaQuery.paddingOf(context).bottom + 20,
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _buildSheetContent(),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
-      padding: EdgeInsets.fromLTRB(
-        20,
-        16,
-        20,
-        MediaQuery.of(context).padding.bottom + 20,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
+    );
+  }
+
+  Widget _buildSheetContent() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
           Container(
             width: 40,
             height: 4,
@@ -194,8 +257,11 @@ class _Payment3DSecureBodyState extends State<_Payment3DSecureBody> {
             const SizedBox(height: 16),
             TextField(
               controller: _smsCtrl,
+              focusNode: _smsFocus,
               keyboardType: TextInputType.number,
-              maxLength: 6,
+              maxLength: _smsCodeLength,
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) => _verifySms(),
               textAlign: TextAlign.center,
               style: const TextStyle(
                 fontSize: 22,
@@ -272,11 +338,13 @@ class _Payment3DSecureBodyState extends State<_Payment3DSecureBody> {
           const SizedBox(height: 8),
           if (_phase != _Phase.processing && _phase != _Phase.done)
             TextButton(
-              onPressed: () => Navigator.pop(context, false),
+              onPressed: () {
+                _dismissKeyboard();
+                Navigator.pop(context, false);
+              },
               child: const Text('İptal', style: TextStyle(color: AppTheme.textMuted)),
             ),
         ],
-      ),
-    );
+      );
   }
 }

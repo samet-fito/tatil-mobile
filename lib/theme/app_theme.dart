@@ -26,6 +26,15 @@ class AppTheme {
   static const Color accent = orange;
   static const Color accentLight = orangeSoft;
 
+  // Vizegoo marka — yüksek dönüşüm paleti
+  static const Color fuchsia = Color(0xFFD946EF);
+  static const Color fuchsiaDark = Color(0xFFC026D3);
+  static const Color fuchsiaSoft = Color(0xFFFDF4FF);
+  static const Color purple = Color(0xFF7C3AED);
+  static const Color purpleDark = Color(0xFF5B21B6);
+  static const Color purpleSoft = Color(0xFFF5F3FF);
+  static const Color navyBadge = Color(0xFF1E3A5F);
+
   // Sağlık modu
   static const Color teal = Color(0xFF00A896);
   static const Color tealLight = Color(0x1A00A896);

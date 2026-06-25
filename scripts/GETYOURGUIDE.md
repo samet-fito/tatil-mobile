@@ -1,66 +1,73 @@
-# GetYourGuide Partner API — Vizegoo Entegrasyonu
+# GetYourGuide — Vizegoo Entegrasyonu
 
-## Genel bakış
+## Aktif mod: Affiliate (deep link)
 
-Vizegoo aktivite akışı GetYourGuide **Partner API** üzerinden çalışır. Affiliate link programı değil; arama, detay, müsaitlik ve rezervasyon backend proxy ile yapılır.
+API token onayı gelene kadar aktiviteler **GetYourGuide partner linkleri** ile açılır.
+Rezervasyon harici tarayıcıda tamamlanır (komisyon takibi için GYG’nin önerdiği yöntem).
 
-| Katman | Dosya | Görev |
-|--------|-------|-------|
-| Backend servis | `travel-app/backend/src/services/getYourGuideService.js` | GYG REST çağrıları |
-| Backend orchestration | `travel-app/backend/src/services/activityService.js` | GYG → mock fallback |
-| Backend routes | `travel-app/backend/src/routes/activities.js` | HTTP uçları |
-| Mobil API | `lib/services/api_service.dart` | `getActivities`, `bookActivity` |
-| Mobil UI | `activity_experience_detail_screen.dart` | Müsaitlik + checkout |
-| Checkout | `category_simple_checkout_screen.dart` | Ödeme → GYG book |
+### Kurulum
 
-## Ortam değişkenleri (backend)
+1. [partner.getyourguide.com](https://partner.getyourguide.com/) → **Account Details** → **Partner ID** kopyalayın
+2. `lib/config/gyg_affiliate_config.dart` dosyasına yapıştırın:
 
-```env
-GYG_ACCESS_TOKEN=your_partner_token
-GYG_USE_SANDBOX=true          # test: api.gygtest.net
-GYG_API_VERSION=1
-GYG_CURRENCY=EUR
-GYG_CONTENT_LANGUAGE=en
-EUR_TO_TL=35
-GYG_PRICE_MARGIN=1.08         # komisyon + kur marjı
+```dart
+static const String partnerId = 'SIZIN_PARTNER_ID';
+static const bool useAffiliateLinks = true;
 ```
 
-Token yoksa backend otomatik **mock aktivite** döner; uygulama çalışmaya devam eder.
+3. Uygulamayı yeniden derleyin
 
-## API uçları
+### Link formatları
 
-| Method | Path | Açıklama |
-|--------|------|----------|
-| GET | `/api/v1/activities?iata&city&departure&return` | Şehir aktiviteleri |
-| GET | `/api/v1/activities/status` | GYG yapılandırma durumu |
-| GET | `/api/v1/activities/tour/:tourId` | Tur detayı |
-| GET | `/api/v1/activities/tour/:tourId/options?date=` | Tarih seçenekleri |
-| POST | `/api/v1/activities/book` | Ödeme sonrası rezervasyon |
+| Amaç | URL |
+|------|-----|
+| Şehir araması | `getyourguide.com/s/?partner_id=…&q=Paris, France&cmp=vizegoo` |
+| Tur / aktivite | `gygUrl` varsa partner_id eklenir; yoksa başlık + şehir araması |
 
-## Mobil akış
+### Kod
 
-1. Kullanıcı destinasyon rehberinde aktiviteleri görür (`getCommissionActivities`).
-2. GYG kaynaklı kartta `gygTourId` ve `imageUrl` gelir.
-3. Detay ekranında tarih seçilince `getActivityTourOptions` ile `gygOptionId` alınır.
-4. Checkout'ta `PaymentService.charge` → `ApiService.bookActivity` (GYG kaynaklıysa).
-5. Başarı ekranında `gygBookingRef` gösterilir.
+| Dosya | Görev |
+|-------|-------|
+| `lib/config/gyg_affiliate_config.dart` | Partner ID, kampanya |
+| `lib/services/gyg_affiliate_service.dart` | Link üretimi + tarayıcıda açma |
 
-## Partner hesabı
+---
 
-1. https://partner.getyourguide.com/ üzerinden Partner API erişimi talep edin.
-2. Sandbox token ile `GYG_USE_SANDBOX=true` ayarlayın.
-3. Render/production `.env` dosyasına `GYG_ACCESS_TOKEN` ekleyin ve backend'i yeniden deploy edin.
+## Gelecek mod: Partner API (Masterbill)
 
-## Test
+API onayı sonrası:
 
-```bash
-# Backend (travel-app/backend)
-curl "http://localhost:3001/api/v1/activities/status"
-curl "http://localhost:3001/api/v1/activities?iata=ROM&city=Roma&departure=2026-07-10&return=2026-07-15"
+```dart
+static const bool useAffiliateLinks = false;
 ```
 
-## Notlar
+Backend’e `GYG_ACCESS_TOKEN` ekleyin. Detay: backend `getYourGuideService.js`.
 
-- Fiyatlar EUR'dan TL'ye `EUR_TO_TL * GYG_PRICE_MARGIN` ile hesaplanır.
-- Gerçek ödeme `AppExperience.paymentsEnabled = true` olunca aktif olur; şu an simülasyon modu.
-- Booking için GYG'nin `category_id` değerleri tur bazında değişebilir; production'da `options` yanıtından alınmalıdır.
+---
+
+## Partner API başvuru mesajı (İngilizce)
+
+```
+Hello,
+
+We are building Vizegoo, a mobile travel planning app (iOS/Android) that helps 
+users discover destinations and book tours and activities.
+
+We have already integrated GetYourGuide affiliate deep links in our app. We would 
+like to request access to the Partner API (Masterbill) so we can offer in-app 
+search, availability, and booking with Vizegoo as the merchant of record.
+
+Our technical stack is ready:
+- Backend proxy (Node.js) for tour search, options, and booking
+- Flutter mobile client with checkout flow
+
+Could you please advise on:
+1. Sandbox API access and token provisioning
+2. Masterbill eligibility and next steps for our application
+
+App: Vizegoo (mobile travel & activities)
+Contact: [your email]
+
+Thank you,
+Muhammed Samed
+```

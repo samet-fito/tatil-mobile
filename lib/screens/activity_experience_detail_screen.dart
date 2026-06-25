@@ -1,18 +1,20 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
+import '../config/gyg_affiliate_config.dart';
 import '../models/search_category.dart';
 import '../services/activity_favorites_store.dart';
+import '../services/gyg_affiliate_service.dart';
 import '../services/api_service.dart';
+import '../utils/activity_image.dart';
 import '../theme/app_theme.dart';
 import '../theme/custom_page_route.dart';
 import '../utils/price_format.dart';
 import 'category_simple_checkout_screen.dart';
 
-/// Viator tarzı aktivite detay — uygulama içi ödeme (dışarı yönlendirme yok).
+/// Aktivite detay — uygulama içi gezinme; satın alma GetYourGuide affiliate linki.
 class ActivityExperienceDetailScreen extends StatefulWidget {
   const ActivityExperienceDetailScreen({
     super.key,
@@ -53,7 +55,9 @@ class _ActivityExperienceDetailScreenState
     _tabs = TabController(length: 4, vsync: this);
     _selectedDate = widget.eventDate ?? DateTime.now().add(const Duration(days: 14));
     _loadFavorite();
-    _loadGygOptions();
+    if (!GygAffiliateConfig.useAffiliateLinks) {
+      _loadGygOptions();
+    }
   }
 
   @override
@@ -139,6 +143,15 @@ class _ActivityExperienceDetailScreenState
   }
 
   void _checkAvailability() {
+    if (GygAffiliateConfig.useAffiliateLinks) {
+      GygAffiliateService.openActivity(
+        context,
+        activity: widget.activity,
+        cityName: widget.cityName,
+      );
+      return;
+    }
+
     if (_gygTourId != null && _gygOptionId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -190,9 +203,14 @@ class _ActivityExperienceDetailScreenState
             pinned: true,
             backgroundColor: AppTheme.purpleDark,
             flexibleSpace: FlexibleSpaceBar(
-              background: imageUrl != null
-                  ? CachedNetworkImage(imageUrl: imageUrl, fit: BoxFit.cover)
-                  : Container(color: AppTheme.purple),
+              background: ActivityNetworkImage(
+                imageUrl: imageUrl,
+                activityId: widget.activity['id'] as String? ?? 'detail',
+                category: widget.categoryId,
+                width: double.infinity,
+                height: 240,
+                fit: BoxFit.cover,
+              ),
             ),
           ),
         ],
@@ -277,7 +295,7 @@ class _ActivityExperienceDetailScreenState
                       ),
                     ],
                   ),
-                  if (_gygTourId != null) ...[
+                  if (!GygAffiliateConfig.useAffiliateLinks && _gygTourId != null) ...[
                     const SizedBox(height: 8),
                     Row(
                       children: [
@@ -324,23 +342,36 @@ class _ActivityExperienceDetailScreenState
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      child: const Text(
-                        'Müsaitliği kontrol et',
-                        style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                      child: Text(
+                        GygAffiliateConfig.useAffiliateLinks
+                            ? 'GetYourGuide\'da satın al'
+                            : 'Müsaitliği kontrol et',
+                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  _policyBox(
-                    'Ücretsiz iptal',
-                    'Deneyim başlamadan 24 saat öncesine kadar tam iade.',
-                  ),
+                  if (GygAffiliateConfig.useAffiliateLinks) ...[
+                    const SizedBox(height: 12),
+                    _policyBox(
+                      'GetYourGuide partner linki',
+                      'Rezervasyon güvenli tarayıcıda tamamlanır. Komisyon '
+                      '31 güne kadar partner hesabınıza yansır.',
+                    ),
+                  ],
                   const SizedBox(height: 8),
                   _policyBox(
-                    'Şimdi rezerve et, sonra öde',
-                    'Esnek planlama için yerinizi şimdi ayırtın.',
+                    'Ücretsiz iptal',
+                    GygAffiliateConfig.useAffiliateLinks
+                        ? 'İptal koşulları GetYourGuide sayfasında gösterilir.'
+                        : 'Deneyim başlamadan 24 saat öncesine kadar tam iade.',
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
+                  if (!GygAffiliateConfig.useAffiliateLinks)
+                    _policyBox(
+                      'Şimdi rezerve et, sonra öde',
+                      'Esnek planlama için yerinizi şimdi ayırtın.',
+                    ),
+                  if (!GygAffiliateConfig.useAffiliateLinks) const SizedBox(height: 8),
                   _urgencyCard(),
                   const SizedBox(height: 20),
                   TabBar(
@@ -581,7 +612,12 @@ class _ActivityExperienceDetailScreenState
                 backgroundColor: AppTheme.orange,
                 padding: const EdgeInsets.symmetric(vertical: 14),
               ),
-              child: const Text('Müsaitliği kontrol et', style: TextStyle(fontWeight: FontWeight.w700)),
+              child: Text(
+                GygAffiliateConfig.useAffiliateLinks
+                    ? 'GetYourGuide\'da satın al'
+                    : 'Müsaitliği kontrol et',
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
             ),
           ),
           const SizedBox(width: 10),

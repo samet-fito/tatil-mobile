@@ -1,7 +1,11 @@
 import '../utils/activity_schedule_utils.dart';
+import '../config/gyg_affiliate_config.dart';
+import 'gyg_activity_catalog.dart';
 
 /// Aktivite API yanıtını komisyonlu aktivite ekranı formatına dönüştürür.
 class CommissionActivities {
+  static const int _catalogMinCount = 4;
+
   static Map<String, dynamic> fromApiActivities(
     Map<String, dynamic> apiData,
     String iata,
@@ -14,9 +18,20 @@ class CommissionActivities {
       throw StateError('Aktivite verisi bulunamadı');
     }
 
-    final withinTrip = List<Map<String, dynamic>>.from(acts['withinTrip'] ?? []);
-    final nearby = List<Map<String, dynamic>>.from(acts['nearby'] ?? []);
-    final all = [...withinTrip, ...nearby];
+    final source = apiData['source'] as String? ?? 'api';
+    var withinTrip = List<Map<String, dynamic>>.from(acts['withinTrip'] ?? []);
+    var nearby = List<Map<String, dynamic>>.from(acts['nearby'] ?? []);
+    var all = [...withinTrip, ...nearby];
+
+    var dataSource = source;
+    if (source == 'mock' || all.length < _catalogMinCount) {
+      final catalog = GygActivityCatalog.forCity(cityName, iata);
+      if (catalog != null && catalog.isNotEmpty) {
+        all = catalog;
+        dataSource = 'catalog';
+      }
+    }
+
     if (all.isEmpty) {
       throw StateError('Bu destinasyon için aktivite bulunamadı');
     }
@@ -73,12 +88,15 @@ class CommissionActivities {
       'cityName': cityName,
       'iata': iata.toUpperCase(),
       'headline': '$cityName\'de Önerilen Aktiviteler',
-      'subtitle': switch (apiData['source']) {
-        'mock' => 'Backend aktivite kataloğu',
+      'subtitle': switch (dataSource) {
+        'catalog' => 'GetYourGuide partner seçkisi — detaylar uygulama içinde',
         'getyourguide' => 'GetYourGuide partner ağı — canlı fiyatlar',
-        _ => 'Vizegoo partner ağı — güvenli rezervasyon',
+        'mock' => 'GetYourGuide partner seçkisi — detaylar uygulama içinde',
+        _ => GygAffiliateConfig.useAffiliateLinks
+            ? 'GetYourGuide partner seçkisi — detaylar uygulama içinde'
+            : 'Vizegoo partner ağı — güvenli rezervasyon',
       },
-      'dataSource': apiData['source'] ?? 'api',
+      'dataSource': dataSource,
       'categories': categories,
       if (tripStart != null) 'eventDeparture': tripStart.toIso8601String(),
       if (tripEnd != null) 'eventReturn': tripEnd.toIso8601String(),
@@ -132,6 +150,7 @@ class CommissionActivities {
       'cancellationPolicy': act['cancellationPolicy'] as String? ?? '',
       'freeCancellation': act['freeCancellation'] == true,
       'bestseller': act['bestseller'] == true,
+      'gygSearchQuery': act['gygSearchQuery'] as String?,
       'isPartner': true,
     };
   }

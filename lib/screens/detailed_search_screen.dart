@@ -37,6 +37,9 @@ import '../services/recent_destination_store.dart';
 import '../data/commission_activities.dart';
 import 'category_results_screens.dart';
 import 'commission_activities_screen.dart';
+import '../models/destination_filter_state.dart';
+import '../widgets/destination_filter_panel.dart';
+import '../widgets/vizegoo_trust_footer.dart';
 import 'route_results_screen.dart';
 
 /// Detaylı arama — kategori seçimine göre form ve sonuç akışı değişir.
@@ -85,6 +88,7 @@ class _DetailedSearchScreenState extends State<DetailedSearchScreen> {
   String _transferTo = 'Otel / Şehir merkezi';
   bool _sameDropoff = true;
   String? _dropoffCity;
+  final DestinationFilterState _destinationFilters = DestinationFilterState();
 
   final List<Map<String, String>> _origins = [
     {'iata': 'IST', 'city': 'İstanbul'},
@@ -125,6 +129,7 @@ class _DetailedSearchScreenState extends State<DetailedSearchScreen> {
   @override
   void dispose() {
     _budgetController.dispose();
+    _destinationFilters.dispose();
     super.dispose();
   }
 
@@ -738,10 +743,8 @@ class _DetailedSearchScreenState extends State<DetailedSearchScreen> {
   }
 
   int get _advancedFilterCount {
-    var n = 0;
+    var n = _destinationFilters.activeCount;
     if (_model.destinationCountry != null) n++;
-    if (_selectedContinent != null) n++;
-    if (_selectedHolidayTypes.isNotEmpty) n++;
     if (widget.category != SearchCategory.packageTour) {
       if (_model.passengers != 1) n++;
       if (_model.children > 0) n++;
@@ -750,82 +753,46 @@ class _DetailedSearchScreenState extends State<DetailedSearchScreen> {
     return n;
   }
 
-  void _openAdvancedFilters() {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setModalState) {
-          void refresh(VoidCallback apply) {
-            apply();
-            setModalState(() {});
-            if (mounted) setState(() {});
-          }
+  void _applyDestinationFilters() {
+    setState(() {
+      _selectedContinent = _destinationFilters.primaryContinent();
+      _selectedHolidayTypes
+        ..clear()
+        ..addAll(_destinationFilters.toHolidayTypes());
+      _model = _model.copyWith(
+        continent: _selectedContinent,
+        holidayTypes: _selectedHolidayTypes.toList(),
+      );
+    });
+  }
 
-          return DraggableScrollableSheet(
-            initialChildSize: 0.82,
-            minChildSize: 0.45,
-            maxChildSize: 0.95,
-            builder: (_, scrollController) => Container(
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-              ),
-              child: Column(
-                children: [
-                  const SizedBox(height: 10),
-                  Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: TatilTheme.border,
-                      borderRadius: BorderRadius.circular(99),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 16, 12, 8),
-                    child: Row(
-                      children: [
-                        Text(
-                          'Gelişmiş filtreler',
-                          style: GoogleFonts.inter(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w800,
-                            color: TatilTheme.textDark,
-                          ),
-                        ),
-                        const Spacer(),
-                        TextButton(
-                          onPressed: () => Navigator.pop(ctx),
-                          child: const Text('Tamam'),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Expanded(
-                    child: ListView(
-                      controller: scrollController,
-                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-                      children: [
-                        _buildCountrySelector(onChanged: refresh),
-                        const SizedBox(height: 18),
-                        _buildContinentSelector(onChanged: refresh),
-                        if (widget.category != SearchCategory.packageTour) ...[
-                          const SizedBox(height: 18),
-                          _buildPassengerSelector(onChanged: refresh),
-                        ],
-                        const SizedBox(height: 20),
-                        _buildFilterSection(onChanged: refresh),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
+  void _openAdvancedFilters() {
+    _destinationFilters.applyFrom(
+      continent: _selectedContinent,
+      holidayTypes: _selectedHolidayTypes,
+    );
+    DestinationFilterPanel.show(
+      context,
+      state: _destinationFilters,
+      onApply: _applyDestinationFilters,
+      onClear: _applyDestinationFilters,
+      extraSections: [
+        _buildCountrySelector(
+          onChanged: (fn) {
+            fn();
+            if (mounted) setState(() {});
+          },
+        ),
+        if (widget.category != SearchCategory.packageTour) ...[
+          const SizedBox(height: 18),
+          _buildPassengerSelector(
+            onChanged: (fn) {
+              fn();
+              if (mounted) setState(() {});
+            },
+          ),
+        ],
+      ],
     );
   }
 
@@ -883,6 +850,11 @@ class _DetailedSearchScreenState extends State<DetailedSearchScreen> {
                 if (widget.category.showSearchGuide) ...[
                   const SizedBox(height: 12),
                   CategorySearchGuide(category: widget.category),
+                ],
+                if (widget.category == SearchCategory.activities ||
+                    widget.category == SearchCategory.packageTour) ...[
+                  const SizedBox(height: 20),
+                  const VizegooTrustFooter(compact: true),
                 ],
               ],
             ),
